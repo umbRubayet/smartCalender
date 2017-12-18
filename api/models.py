@@ -30,3 +30,6 @@ class MonthView(models.Model):
     date = models.DateField()
     tasks = JSONField("Tasks",default=tasks_default)
     task_count = models.IntegerField(default=1)
+
+class Task(models.Model):
+    image = models.ImageField(upload_to='Image/', default='Image/None/no-img.jpg')

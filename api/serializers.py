@@ -4,7 +4,7 @@ from rest_framework import serializers
 from .models import User
 from .models import Info
 from .models import MonthView
-
+from .models import Task
 class UserSerializer(serializers.ModelSerializer):
 
 
@@ -23,3 +23,8 @@ class MonthViewSerializer(serializers.ModelSerializer) :
     class Meta:
         model = MonthView
         fields = ('id','user_id', 'date', 'tasks','task_count')
+
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ('pk','image')

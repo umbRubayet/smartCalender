@@ -4,12 +4,14 @@ from rest_framework import status
 #serializers-------
 from .serializers import UserSerializer
 from .serializers import MonthViewSerializer
+from .serializers import TaskSerializer
 #serializers--------
 
 #models---------
 from .models import User
 from .models import Info
 from .models import MonthView
+from .models import Task
 #models---------
 
 from rest_framework.response import Response
@@ -171,3 +173,13 @@ def get_month_tasks(request, user_id):
             return Response (response , status = status.HTTP_200_OK)
 
         return Response (status = status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def postTask(request):
+    serializer = TaskSerializer(data=request.data)
+    image = request.data['file']
+    task = Task.objects.create(image=image)
+    task.save()
+    return Response(status = status.HTTP_200_OK)
+
