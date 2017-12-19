@@ -11,7 +11,7 @@ urlpatterns = [
     url(r'^month_tasks/$',views.month_tasks),
     url(r'^tasks/$',views.tasks),
     url(r'^monthtasks/$' , views.postTask),
-    url(r'^detailedTask/$', views.postTask),
+    url(r'^detailedTask/(?P<user_id>\d+)/$', views.postTask),
 ] + static(settings.MEDIA_URL, document_root= settings.MEDIA_ROOT)
 
 urlpatterns = format_suffix_patterns(urlpatterns)

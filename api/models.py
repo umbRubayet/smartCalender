@@ -31,5 +31,15 @@ class MonthView(models.Model):
     tasks = JSONField("Tasks",default=tasks_default)
     task_count = models.IntegerField(default=1)
 
+def reminder_default():
+    return {"time":""}
+
 class Task(models.Model):
     image = models.ImageField(upload_to='Image/', default='Image/None/no-img.jpg')
+    category = models.CharField(max_length=255, blank=False, default="event")
+    title = models.CharField(max_length=255, blank=False, default="task")
+    from_time = models.DateTimeField(blank=True, null=True)
+    to_time = models.DateTimeField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    reminders = JSONField("reminders", default = reminder_default, blank=True, null=True)
+    user_id = models.IntegerField(default=50)

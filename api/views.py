@@ -175,11 +175,31 @@ def get_month_tasks(request, user_id):
         return Response (status = status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-def postTask(request):
-    serializer = TaskSerializer(data=request.data)
-    image = request.data['file']
-    task = Task.objects.create(image=image)
-    task.save()
-    return Response(status = status.HTTP_200_OK)
+@api_view(['POST','GET'])
+def postTask(request, user_id):
 
+    if request.method == 'POST':
+        try:
+            serializer = TaskSerializer(data=request.data)
+        except Exception as excep:
+            response = {"success":False, "message": excep}
+            return Response(response, status= status.HTTP_400_BAD_REQUEST)
+
+        image = request.data['file']
+        category = request.data['category']
+        title = request.data['title']
+        from_time = request.data['from_time']
+        to_time = request.data['to_time']
+        description = request.data['description']
+        reminders = request.data['reminders']
+ 
+        try:
+            task = Task.objects.create(image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,reminders=reminders, user_id=user_id)
+            taskSerializer = TaskSerializer(task)
+            response = {"success":True, "data":taskSerializer.data, "message":"new task added"}
+            return Response(response, status = status.HTTP_200_OK)
+        except Exception as excep:
+            response = {"success":False,"message":excep}
+            return Response(response, status=status.HTTP_400_BAD_REQUEST)
+
+        
