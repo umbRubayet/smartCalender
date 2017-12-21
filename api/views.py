@@ -241,3 +241,18 @@ def postTask(request, user_id):
 
         response = {"success":False, "message":"others error", "data":""}
         return Response(response, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def search(request, user_id , text):
+
+    if request.method == 'GET':
+        tasksWithText = Task.objects.filter(user_id=user_id, title__contains=text)
+        taskList=[]
+        for task in tasksWithText:
+            task_dict={}
+            task_dict['task_id']=task.id
+            task_dict['task_title'] = task.title
+            taskList.append(task_dict)
+
+        response = {"data":taskList}
+        return Response(response, status=status.HTTP_200_OK)
