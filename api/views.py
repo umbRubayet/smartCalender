@@ -17,6 +17,7 @@ from .models import Task
 from rest_framework.response import Response
 import json
 import requests
+import dateutil.parser
 
 # Create your views here.
 
@@ -83,7 +84,7 @@ def month_tasks(request):
         data_dict = json.loads(data_input)
         requested_user_id = data_dict['user_id']
         requested_date = data_dict['date']
-        
+
         data_dict['tasks'] = data_dict['tasks'][0]
         exists = MonthView.objects.filter(user_id = requested_user_id, date = requested_date).exists()
 
@@ -107,7 +108,7 @@ def month_tasks(request):
             else:
                 for i in tasks:
                     task_list.append(i)
-            
+
             task_list.append(data_dict['tasks'])
             monthView.tasks = task_list
             monthView.task_count = monthView.task_count + 1
@@ -124,10 +125,10 @@ def month_tasks(request):
             response = {"success":"false","data": serializer.data,"message":""}
             return Response(response, data = serializer.data , status = status.HTTP_400_BAD_REQUEST)
 
-
+"""
 @api_view(['POST','GET'])
 def tasks(request):
-    """ create new task """
+     create new task 
 
     if request.method == 'POST':
         data_input = json.dumps(request.data)
@@ -137,7 +138,6 @@ def tasks(request):
         task_id = data_dict['task_id']
         task_title = data_dict['task_title']
 
-        """ POST task to month view to update internally """
         task_dict = {}
         task_dict['task_id'] = task_id
         task_dict['task_title'] = task_title
@@ -156,14 +156,16 @@ def tasks(request):
         if response.status_code == 200 :
             return Response ({"success":"edit","message":"updated task count"}, status = status.HTTP_200_OK)
         return Response(status = status.HTTP_400_BAD_REQUEST)
+"""
+
 
 @api_view (['GET','POST'])
 def get_month_tasks(request, user_id):
     """ get all tasks for an user from monthView table in specific date range """
     if request.method == 'GET':
         exists = MonthView.objects.filter(user_id = user_id).exists()
-        
-        if exists : 
+
+        if exists :
             monthViewAllTasks = MonthView.objects.filter(user_id = user_id)
             serializer = MonthViewSerializer(monthViewAllTasks, many=True)
             response = {"success":"true", "data":serializer.data, "message":"all tasks"}
@@ -179,12 +181,13 @@ def get_month_tasks(request, user_id):
 def postTask(request, user_id):
 
     if request.method == 'POST':
-        try:
-            serializer = TaskSerializer(data=request.data)
-        except Exception as excep:
-            response = {"success":False, "message": excep}
-            return Response(response, status= status.HTTP_400_BAD_REQUEST)
+    #    try:
+     #       serializer = TaskSerializer(data=request.data)
+      #  except Exception as excep:
+       #     response = {"success":False, "message": excep}
+        #    return Response(response, status= status.HTTP_400_BAD_REQUEST)"""
 
+        date = request.data['date']
         image = request.data['file']
         category = request.data['category']
         title = request.data['title']
@@ -192,14 +195,49 @@ def postTask(request, user_id):
         to_time = request.data['to_time']
         description = request.data['description']
         reminders = request.data['reminders']
- 
+        
+        if not from_time:
+            from_time=None
+        if not to_time:
+            to_time=None
+        if not description:
+            description = None
+        if not reminders:
+            reminders = None
         try:
-            task = Task.objects.create(image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,reminders=reminders, user_id=user_id)
+            task = Task.objects.create(date=date,image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,reminders=reminders, user_id=user_id)
             taskSerializer = TaskSerializer(task)
             response = {"success":True, "data":taskSerializer.data, "message":"new task added"}
-            return Response(response, status = status.HTTP_200_OK)
+
+            """post task to month view to update internally """
+            task_dict = {}
+            task_dict['task_id'] = taskSerializer.data['pk']
+            task_dict['task_title'] = title
+            
+            if from_time:
+                task_dict['time'] = from_time
+            
+            json_data = {}
+            json_data['user_id'] = user_id
+            
+            json_data['date'] = date
+            json_data['tasks'] = [task_dict]
+
+            return Response(response, status = status.HTTP_201_CREATED)
+
         except Exception as excep:
             response = {"success":False,"message":excep}
             return Response(response, status=status.HTTP_400_BAD_REQUEST)
 
-        
+    elif request.method == 'GET':
+        try:
+            allTasks = Task.objects.filter(user_id=user_id)
+            serializer = TaskSerializer(allTasks, many=True)
+            response = {"success":True, "message":"all detailed tasks", "data":serializer.data}
+            return Response (response, status= status.HTTP_200_OK)
+        except Exception as ex:
+            response = {"success":False,"message":"error occured", "data":"" }
+            return Response (response, status=status.HTTP_404_NOT_FOUND)
+
+        response = {"success":False, "message":"others error", "data":""}
+        return Response(response, status=status.HTTP_400_BAD_REQUEST)

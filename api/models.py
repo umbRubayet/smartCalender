@@ -35,11 +35,12 @@ def reminder_default():
     return {"time":""}
 
 class Task(models.Model):
+    date = models.DateField(blank=False, default = datetime.today)
     image = models.ImageField(upload_to='Image/', default='Image/None/no-img.jpg')
     category = models.CharField(max_length=255, blank=False, default="event")
     title = models.CharField(max_length=255, blank=False, default="task")
-    from_time = models.DateTimeField(blank=True, null=True)
-    to_time = models.DateTimeField(blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
+    from_time = models.TimeField(blank=True, null=True,default=None)
+    to_time = models.TimeField(blank=True, null=True, default=None)
+    description = models.TextField(blank=True, null=True, default=None)
     reminders = JSONField("reminders", default = reminder_default, blank=True, null=True)
-    user_id = models.IntegerField(default=50)
+    user_id = models.IntegerField(default=None)
