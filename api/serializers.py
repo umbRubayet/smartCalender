@@ -27,4 +27,4 @@ class MonthViewSerializer(serializers.ModelSerializer) :
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = ('pk','user_id','image','category','title','from_time','to_time','description','reminders','date')
+        fields = ('id','user_id','image','category','title','from_time','to_time','description','reminders','date','complete')

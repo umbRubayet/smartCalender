@@ -44,3 +44,4 @@ class Task(models.Model):
     description = models.TextField(blank=True, null=True, default=None)
     reminders = JSONField("reminders", default = reminder_default, blank=True, null=True)
     user_id = models.IntegerField(default=None)
+    complete = models.BooleanField(default=False)

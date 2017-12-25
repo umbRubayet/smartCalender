@@ -242,6 +242,34 @@ def postTask(request, user_id):
         response = {"success":False, "message":"others error", "data":""}
         return Response(response, status=status.HTTP_400_BAD_REQUEST)
 
+
+@api_view(['GET','POST'])
+def getTasksfromDate(request,user_id):
+    if request.method == 'POST':
+        data_input = json.dumps(request.data)
+        data_dict = json.loads(data_input)
+        date = data_dict['date']
+        try:
+            allTasks = Task.objects.filter(user_id=user_id,date=date)
+            serializer = TaskSerializer(allTasks, many=True)
+            response = {"data":serializer.data}
+            return Response(response,status=status.HTTP_200_OK)
+        except:
+            pass
+
+@api_view(['PUT','DELETE'])
+def editTask(request, task_id):
+    if request.method == 'DELETE':
+        try:
+            task = Task.objects.get(id=task_id)
+            date = task.date
+            task.delete()
+            response = {"success":True,"message":"deleted"}
+            return Response (response, status=status.HTTP_204_NO_CONTENT)
+        except:
+            response = {"success":False, "message":"error"}
+            return Response (response, status=status.HTTP_404_NOT_FOUND)
+
 @api_view(['GET'])
 def search(request, user_id , text):
 
