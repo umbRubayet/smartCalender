@@ -10,7 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id','mail','password')
+        fields = ('id','mail','password','name','phoneNumber','image')
 
 class InfoSerializer(serializers.ModelSerializer):
 
@@ -28,3 +28,8 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = ('id','user_id','image','category','title','from_time','to_time','description','reminders','date','complete')
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields= ('id','image','mail','name','phoneNumber')

@@ -5,7 +5,9 @@ from rest_framework import status
 from .serializers import UserSerializer
 from .serializers import MonthViewSerializer
 from .serializers import TaskSerializer
+from .serializers import ProfileSerializer
 #serializers--------
+
 
 #models---------
 from .models import User
@@ -187,15 +189,16 @@ def postTask(request, user_id):
        #     response = {"success":False, "message": excep}
         #    return Response(response, status= status.HTTP_400_BAD_REQUEST)"""
 
-        date = request.data['date']
+        date = request.POST.get('date')
         image = request.data['file']
-        category = request.data['category']
-        title = request.data['title']
-        from_time = request.data['from_time']
-        to_time = request.data['to_time']
-        description = request.data['description']
-        reminders = request.data['reminders']
-        
+        category = request.POST.get('category')
+        title = request.POST.get('title')
+        from_time = request.POST.get('from_time')
+        to_time = request.POST.get('to_time')
+        description = request.POST.get('description')
+        reminders = request.POST.get('reminders')
+        print("dateeeeeeeeeee    "+str(type(date))) 
+
         if not from_time:
             from_time=None
         if not to_time:
@@ -211,7 +214,7 @@ def postTask(request, user_id):
 
             """post task to month view to update internally """
             task_dict = {}
-            task_dict['task_id'] = taskSerializer.data['pk']
+            task_dict['task_id'] = taskSerializer.data['id']
             task_dict['task_title'] = title
             
             if from_time:
@@ -284,3 +287,81 @@ def search(request, user_id , text):
 
         response = {"data":taskList}
         return Response(response, status=status.HTTP_200_OK)
+
+@api_view(['GET','PUT'])
+def profile(request, mail):
+
+    if request.method=='PUT':
+        user = User.objects.get(mail=mail)
+        name=False
+        phoneNumber=False
+        image=False
+        password = False
+        try:
+            image = request.data['file']
+            user.image=image
+        except:
+            user.image=None 
+        try:
+            name = request.data['name']
+            user.name=name
+        except:
+            user.name=None 
+        try:
+            phoneNumber = request.data['phoneNumber']
+        except:
+            pass 
+        try:
+            password = request.data['password']
+        except:
+            pass
+        if phoneNumber:
+            user.phoneNumber = phoneNumber
+        if password:
+            user.password = password
+        
+        try:
+            user.save()
+            userSerializer = UserSerializer(user)
+            response = {"data":userSerializer.data,"success":True,"message":"profile successfully updated"}
+            return Response(response, status=status.HTTP_200_OK)
+        except:    
+            response = {"success":False,"message":"Update was unsuccessfull"}
+            return Response(response,status=status.HTTP_202_ACCEPTED)
+    
+    if request.method == 'GET':
+        exists = User.objects.filter(mail=mail).exists()
+        if exists:
+            user = User.objects.get(mail=mail)
+            try:
+                userSerializer = UserSerializer(user)
+                response = {"success":True,"message":"user found","data":userSerializer.data}
+                return Response(response, status=status.HTTP_200_OK)
+            except:
+                response = {"success":False,"message":"error"}
+                return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
+        else:
+            response = {"success":True, "message":"user not found","data":""}
+            return Response(response,status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['GET'])
+def findFriend(request, key):
+    if request.method == 'GET':
+        exists_mail = User.objects.filter(mail=key).exists()
+        exists_phone = User.objects.filter(phoneNumber=key).exists()
+        
+        if exists_mail:
+            user = User.objects.filter(mail=key)
+            profileSerializer = ProfileSerializer(user, many=True)
+            response = {"success":True,"message":"user found","data":profileSerializer.data}
+            return Response(response, status=status.HTTP_200_OK)
+        elif exists_phone:
+            user = User.objects.filter(phoneNumber=key)
+            profileSerializer = ProfileSerializer(user, many=True)
+            response = {"success":True,"message":"user found","data":profileSerializer.data}
+            return Response(response, status=status.HTTP_200_OK)
+        
+        else:
+            response = {"success":False,"message":"user not found","data":""}
+            return Response(response, status=status.HTTP_404_NOT_FOUND)

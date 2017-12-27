@@ -11,7 +11,10 @@ class User(models.Model):
 
     mail = models.CharField(max_length=255, blank=False,unique=True)
     password = models.CharField(max_length=255, blank=False)
-
+    name = models.CharField(max_length=255,blank=True,default=None, null=True)
+    image = models.ImageField(upload_to='Image/', default='Image/None/no-profile-image.jpg')
+    phoneNumber = models.CharField(max_length=20,blank=True,default=None,null=True)
+    
     def __str__(self):
         return "{}".format(self.mail)
 
