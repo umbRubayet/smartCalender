@@ -198,8 +198,9 @@ def postTask(request, user_id):
         to_time = request.POST.get('to_time')
         description = request.POST.get('description')
         reminders = request.POST.get('reminders')
-        print("dateeeeeeeeeee    "+str(type(date))) 
-
+        print ("data type...."+str(type(reminders)))
+        reminders = json.loads(reminders)
+        print("after convert..."+ str(type(reminders)))
         if not from_time:
             from_time=None
         if not to_time:
