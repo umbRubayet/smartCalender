@@ -17,6 +17,7 @@ urlpatterns = [
     url(r'^editTask/(?P<task_id>\d+)/$',views.editTask),
     url(r'^profile/(?P<mail>[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})/$', views.profile),
     url(r'^findFriend/(?P<key>.+)/$',views.findFriend),
+    url(r'^addFriend/(?P<user_id>\d+)/$',views.addFriend),
 ] + static(settings.MEDIA_URL, document_root= settings.MEDIA_ROOT)
 
 urlpatterns = format_suffix_patterns(urlpatterns)

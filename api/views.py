@@ -14,12 +14,13 @@ from .models import User
 from .models import Info
 from .models import MonthView
 from .models import Task
+from .models import FriendList
 #models---------
-
 from rest_framework.response import Response
 import json
 import requests
 import dateutil.parser
+from collections import defaultdict
 
 # Create your views here.
 
@@ -365,3 +366,55 @@ def findFriend(request, key):
         else:
             response = {"success":False,"message":"user not found","data":""}
             return Response(response, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['GET','POST'])
+def addFriend(request, user_id):
+    if request.method == 'POST':
+        friend_id = request.POST.get('friend_id')
+        
+        exists = FriendList.objects.filter(user_id=user_id).exists()
+        
+        try:
+            if exists:
+                user = FriendList.objects.get(user_id=user_id)
+                friend_list = user.friend_list['friend_id']
+                # if this userid is already added then no need to add.
+                if not friend_id in friend_list:
+                    friend_list.append(friend_id)
+                    user.friend_list['friend_id'] = friend_list
+                    user.save()
+                else:
+                    response = {"success":False,"message":"already added"}
+                    return Response (response, status=status.HTTP_200_OK)
+            else:
+                friend_list= {}
+                friend_list['friend_id']= []
+                friend_list['friend_id'].append(friend_id)
+                FriendList.objects.create(user_id=user_id,friend_list=friend_list)
+            
+            response = {"success":True,"message":"friend added successfully"}
+            return Response(response, status=status.HTTP_201_CREATED)
+        
+        except:
+            response = {"success":False,"message":"couldn't add friend"}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method=='GET':
+        """ get all friends of a user_id """
+        exists = FriendList.objects.filter(user_id=user_id).exists()
+        
+        if exists:
+            try:
+                user = FriendList.objects.get(user_id=user_id)
+
+                friend_list = user.friend_list['friend_id']
+                friends = User.objects.filter(id__in=friend_list)
+                serializer = ProfileSerializer(friends,many=True)
+                response = {"success":True,"data":serializer.data,"message":"all friends"}
+                return Response(response,status=status.HTTP_200_OK)
+            except:
+                response = {"success":False, "data":[],"message":"error occured"} 
+                return Response (response, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            response = {"success":True,"data":[],"message":"no friend yet"}
+            return Response(response, status=status.HTTP_200_OK)

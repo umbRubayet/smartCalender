@@ -5,6 +5,8 @@ from .models import User
 from .models import Info
 from .models import MonthView
 from .models import Task
+from .models import FriendList
+import json
 class UserSerializer(serializers.ModelSerializer):
 
 
@@ -25,10 +27,15 @@ class MonthViewSerializer(serializers.ModelSerializer) :
         fields = ('id','user_id', 'date', 'tasks','task_count')
 
 class TaskSerializer(serializers.ModelSerializer):
+    reminders = serializers.SerializerMethodField()
+
     class Meta:
+
         model = Task
         fields = ('id','user_id','image','category','title','from_time','to_time','description','reminders','date','complete')
-
+    
+    def get_reminders(self,obj):
+        return obj.reminders
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

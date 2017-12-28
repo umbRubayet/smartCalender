@@ -45,6 +45,13 @@ class Task(models.Model):
     from_time = models.TimeField(blank=True, null=True,default=None)
     to_time = models.TimeField(blank=True, null=True, default=None)
     description = models.TextField(blank=True, null=True, default=None)
-    reminders = JSONField("reminders", default = reminder_default, blank=True, null=True)
+    reminders = JSONField("reminders", default = None, blank=True, null=True)
     user_id = models.IntegerField(default=None)
     complete = models.BooleanField(default=False)
+
+def friend_list_default():
+    return [{"id":""}]
+
+class FriendList(models.Model):
+    user_id = models.IntegerField(blank=False,default=None)
+    friend_list = JSONField("friends",default=friend_list_default, blank=True,null=True)
