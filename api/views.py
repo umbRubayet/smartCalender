@@ -6,6 +6,7 @@ from .serializers import UserSerializer
 from .serializers import MonthViewSerializer
 from .serializers import TaskSerializer
 from .serializers import ProfileSerializer
+from .serializers import TopTaskSerializer
 #serializers--------
 
 
@@ -16,6 +17,7 @@ from .models import MonthView
 from .models import Task
 from .models import FriendList
 #models---------
+
 from rest_framework.response import Response
 import json
 import requests
@@ -215,18 +217,9 @@ def postTask(request, user_id):
             response = {"success":True, "data":taskSerializer.data, "message":"new task added"}
 
             """post task to month view to update internally """
-            task_dict = {}
-            task_dict['task_id'] = taskSerializer.data['id']
-            task_dict['task_title'] = title
-            
-            if from_time:
-                task_dict['time'] = from_time
-            
-            json_data = {}
-            json_data['user_id'] = user_id
-            
-            json_data['date'] = date
-            json_data['tasks'] = [task_dict]
+           
+
+
 
             return Response(response, status = status.HTTP_201_CREATED)
 
@@ -246,6 +239,21 @@ def postTask(request, user_id):
 
         response = {"success":False, "message":"others error", "data":""}
         return Response(response, status=status.HTTP_400_BAD_REQUEST)
+
+def topTaskofDate(user_id,date):
+    try:
+        allTasks = Task.objects.filter(user_id=user_id, date=date, complete=False).order_by(from_time)
+        taskCount = allTasks.count()
+        topThreeTasks = allTasks[:3]
+        topTaskSerializer = TopTaskSerializer(topThreeTasks)
+
+        result={}
+        result['count'] = taskCount
+        result['tasks'] = topTaskSerializer.data
+        return result
+    except:
+        print("topTaskof date exception")
+        return None
 
 
 @api_view(['GET','POST'])
@@ -347,32 +355,59 @@ def profile(request, mail):
             response = {"success":True, "message":"user not found","data":""}
             return Response(response,status=status.HTTP_404_NOT_FOUND)
 
+
+def alreadyFriend(user_id,friend_id):
+    exists = FriendList.objects.filter(user_id=user_id).exists()
+
+    if exists:
+        user = FriendList.objects.get(user_id=user_id)
+        user_friend_list_dict = user.friend_list
+        user_friend_list = user_friend_list_dict['friend_id']
+       
+        if str(friend_id) in user_friend_list:
+            return True
+
+        else:
+            return False
+    else:
+        return False
+
 @api_view(['GET'])
-def findFriend(request, key):
+def findFriend(request, user_id, key):
     if request.method == 'GET':
+        
         exists_mail = User.objects.filter(mail=key).exists()
         exists_phone = User.objects.filter(phoneNumber=key).exists()
         
+        already_friend = False
+
         if exists_mail:
-            user = User.objects.filter(mail=key)
-            profileSerializer = ProfileSerializer(user, many=True)
-            response = {"success":True,"message":"user found","data":profileSerializer.data}
+            user = User.objects.get(mail=key)
+            profileSerializer = ProfileSerializer(user)
+           
+            already_friend =  alreadyFriend(user_id, user.id )
+ 
+            response = {"already": already_friend, "success":True,"message":"user found","data":[profileSerializer.data]}
             return Response(response, status=status.HTTP_200_OK)
         elif exists_phone:
-            user = User.objects.filter(phoneNumber=key)
-            profileSerializer = ProfileSerializer(user, many=True)
-            response = {"success":True,"message":"user found","data":profileSerializer.data}
+            user = User.objects.get(phoneNumber=key)
+            profileSerializer = ProfileSerializer(user)
+            
+            already_friend = alreadyFriend(user_id,user.id)
+            response = {"already":already_friend,"success":True,"message":"user found","data":[profileSerializer.data]}
             return Response(response, status=status.HTTP_200_OK)
         
         else:
-            response = {"success":False,"message":"user not found","data":""}
-            return Response(response, status=status.HTTP_404_NOT_FOUND)
+            response = {"already":already_friend, "success":True,"message":"user not found","data":[]}
+            return Response(response, status=status.HTTP_200_OK)
 
-@api_view(['GET','POST'])
-def addFriend(request, user_id):
+@api_view(['GET','POST','DELETE'])
+def friend(request, user_id):
+    
     if request.method == 'POST':
         friend_id = request.POST.get('friend_id')
-        
+       
+        print("friend id.."+str(type(friend_id)))
         exists = FriendList.objects.filter(user_id=user_id).exists()
         
         try:
@@ -380,10 +415,12 @@ def addFriend(request, user_id):
                 user = FriendList.objects.get(user_id=user_id)
                 friend_list = user.friend_list['friend_id']
                 # if this userid is already added then no need to add.
-                if not friend_id in friend_list:
+                if not str(friend_id) in friend_list:
                     friend_list.append(friend_id)
                     user.friend_list['friend_id'] = friend_list
                     user.save()
+                    response = {"success":True,"message":"friend added successfully"}
+                    return Response(response, status=status.HTTP_201_CREATED)
                 else:
                     response = {"success":False,"message":"already added"}
                     return Response (response, status=status.HTTP_200_OK)
@@ -392,9 +429,8 @@ def addFriend(request, user_id):
                 friend_list['friend_id']= []
                 friend_list['friend_id'].append(friend_id)
                 FriendList.objects.create(user_id=user_id,friend_list=friend_list)
-            
-            response = {"success":True,"message":"friend added successfully"}
-            return Response(response, status=status.HTTP_201_CREATED)
+                response = {"success":True,"message":"friend added successfully"}
+                return Response(response, status=status.HTTP_201_CREATED)
         
         except:
             response = {"success":False,"message":"couldn't add friend"}
@@ -414,8 +450,28 @@ def addFriend(request, user_id):
                 response = {"success":True,"data":serializer.data,"message":"all friends"}
                 return Response(response,status=status.HTTP_200_OK)
             except:
-                response = {"success":False, "data":[],"message":"error occured"} 
+                response = {"success":False, "data":None,"message":"error occured"} 
                 return Response (response, status=status.HTTP_400_BAD_REQUEST)
         else:
-            response = {"success":True,"data":[],"message":"no friend yet"}
+            response = {"success":True,"data":None,"message":"no friend yet"}
             return Response(response, status=status.HTTP_200_OK)
+    
+    if request.method == 'DELETE':
+        
+        friend_id = request.POST.get('friend_id')
+        try:
+            user = FriendList.objects.get(user_id=user_id)
+            friend_list = user.friend_list['friend_id']
+            if str(friend_id) in friend_list:
+                friend_list.remove(str(friend_id))
+                user.friend_list['friend_id'] = friend_list
+                user.save()
+                response = {"success":True, "message":"friend removed"}
+                return Response (response, status = status.HTTP_200_OK)
+            else:
+                response = {"success":True, "message":"not in friendlist"}
+                return Response (response, status = status.HTTP_200_OK)
+
+        except:
+            response = {"success":False, "message":"couldn't remove"}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)

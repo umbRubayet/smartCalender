@@ -40,3 +40,8 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields= ('id','image','mail','name','phoneNumber')
+
+class TopTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields=('id','task_title')

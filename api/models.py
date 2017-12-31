@@ -12,7 +12,7 @@ class User(models.Model):
     mail = models.CharField(max_length=255, blank=False,unique=True)
     password = models.CharField(max_length=255, blank=False)
     name = models.CharField(max_length=255,blank=True,default=None, null=True)
-    image = models.ImageField(upload_to='Image/', default='Image/None/no-profile-image.jpg')
+    image = models.ImageField(upload_to='Image/', default=None, blank=True, null=True)
     phoneNumber = models.CharField(max_length=20,blank=True,default=None,null=True)
     
     def __str__(self):
@@ -39,7 +39,7 @@ def reminder_default():
 
 class Task(models.Model):
     date = models.DateField(blank=False, default = datetime.today)
-    image = models.ImageField(upload_to='Image/', default='Image/None/no-img.jpg')
+    image = models.ImageField(upload_to='Image/', default=None, blank=True, null=True)
     category = models.CharField(max_length=255, blank=False, default="event")
     title = models.CharField(max_length=255, blank=False, default="task")
     from_time = models.TimeField(blank=True, null=True,default=None)
