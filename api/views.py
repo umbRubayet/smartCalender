@@ -200,9 +200,10 @@ def postTask(request, user_id):
         to_time = request.POST.get('to_time')
         description = request.POST.get('description')
         reminders = request.POST.get('reminders')
-        print ("data type...."+str(type(reminders)))
         reminders = json.loads(reminders)
-        print("after convert..."+ str(type(reminders)))
+        tagged = request.POST.get('tagged')
+        tagged = json.loads(tagged)
+
         if not from_time:
             from_time=None
         if not to_time:
@@ -211,15 +212,22 @@ def postTask(request, user_id):
             description = None
         if not reminders:
             reminders = None
+        if not tagged:
+            tagged = None
+
         try:
-            task = Task.objects.create(date=date,image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,reminders=reminders, user_id=user_id)
+            task = Task.objects.create(date=date,image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,tagged=tagged,reminders=reminders, user_id=user_id)
             taskSerializer = TaskSerializer(task)
             response = {"success":True, "data":taskSerializer.data, "message":"new task added"}
 
             """post task to month view to update internally """
            
-
-
+            topTasks_dict = topTaskofDate(user_id,date)
+           
+            monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
+            monthView_user[0].task_count = topTasks_dict['count']
+            monthView_user[0].tasks = topTasks_dict['tasks']
+            monthView_user[0].save()
 
             return Response(response, status = status.HTTP_201_CREATED)
 
@@ -242,14 +250,14 @@ def postTask(request, user_id):
 
 def topTaskofDate(user_id,date):
     try:
-        allTasks = Task.objects.filter(user_id=user_id, date=date, complete=False).order_by(from_time)
+        allTasks = Task.objects.filter(user_id=user_id, date=date, complete=False).order_by("from_time")
         taskCount = allTasks.count()
         topThreeTasks = allTasks[:3]
-        topTaskSerializer = TopTaskSerializer(topThreeTasks)
+        topTaskSerializer = TopTaskSerializer(topThreeTasks, many=True)
 
         result={}
         result['count'] = taskCount
-        result['tasks'] = topTaskSerializer.data
+        result['tasks'] = topTaskSerializer.data[:]
         return result
     except:
         print("topTaskof date exception")
