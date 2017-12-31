@@ -483,3 +483,26 @@ def friend(request, user_id):
         except:
             response = {"success":False, "message":"couldn't remove"}
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
+@api_view (['POST'])
+def taskStatusOperation(request,user_id,task_id):
+
+    if request.method == 'POST':
+        complition = request.POST.get('flag')
+        exists = Task.objects.filter(user_id=user_id,id=task_id)
+        
+        complition = json.loads(complition)
+        if exists:
+            try:
+                task = Task.objects.get(user_id=user_id,id=task_id)
+                task.complete = complition
+                task.save()
+
+                response = {"success":True, "message":"updated"}
+                return Response(response, status = status.HTTP_200_OK)
+            except:
+                response = {"success":False, "message":"error"}
+                return Response (response, status = status.HTTP_400_BAD_REQUEST)
+        else:
+            response = {"success":True,"message":"task doesn't exist"} 
+            return Response (response,status = status.HTTP_200_OK)

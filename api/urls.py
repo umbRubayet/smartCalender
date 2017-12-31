@@ -18,6 +18,7 @@ urlpatterns = [
     url(r'^profile/(?P<mail>[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})/$', views.profile),
     url(r'^findFriend/(?P<user_id>\d+)/(?P<key>.+)/$',views.findFriend),
     url(r'^friend/(?P<user_id>\d+)/$',views.friend),
+    url(r'^taskStatus/(?P<user_id>\d+)/(?P<task_id>)/$',views.taskStatusOperation),
 ] + static(settings.MEDIA_URL, document_root= settings.MEDIA_ROOT)
 
 urlpatterns = format_suffix_patterns(urlpatterns)
