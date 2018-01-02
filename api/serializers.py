@@ -24,7 +24,7 @@ class MonthViewSerializer(serializers.ModelSerializer) :
 
     class Meta:
         model = MonthView
-        fields = ('id','user_id', 'date', 'tasks','task_count')
+        fields = ('id','user_id', 'date', 'tasks','task_count','tag_flag')
 
 class TaskSerializer(serializers.ModelSerializer):
     reminders = serializers.SerializerMethodField()
@@ -32,7 +32,7 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
 
         model = Task
-        fields = ('id','user_id','image','category','title','from_time','to_time','description','reminders','tagged','date','complete')
+        fields = ('id','user_id','image','category','title','from_time','to_time','description','reminders','tagged','date','complete','tag_flag')
     
     def get_reminders(self,obj):
         return obj.reminders
@@ -44,4 +44,9 @@ class ProfileSerializer(serializers.ModelSerializer):
 class TopTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields=('id','title')
+        fields=('id','title','tag_flag')
+
+class TaskSearchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ('id','title','date','from_time','tag_flag')

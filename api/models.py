@@ -33,6 +33,7 @@ class MonthView(models.Model):
     date = models.DateField()
     tasks = JSONField(blank=True,null=True,default=None)
     task_count = models.IntegerField(blank=True,null=True,default=None)
+    tag_flag = models.BooleanField(default=False)
 
 def reminder_default():
     return {"time":""}
@@ -49,6 +50,7 @@ class Task(models.Model):
     user_id = models.IntegerField(default=None)
     complete = models.BooleanField(default=False)
     tagged = JSONField(default=None, blank=True, null=True)
+    tag_flag = models.BooleanField(default=False)
 
 def friend_list_default():
     return [{"id":""}]
