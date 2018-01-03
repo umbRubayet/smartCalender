@@ -31,20 +31,19 @@ from collections import defaultdict
 def user_list(request):
 
     if request.method =='POST':
-        serializer = UserSerializer(data=request.data)
-        data_input = json.dumps(request.data)
-        data_dict = json.loads(data_input)
-        #print("type"+data_dict['mail'])
-        mail = data_dict['mail']
+        
+        mail = request.POST.get('mail')
+        password = request.POST.get('password')
         exists = User.objects.filter(mail=mail).exists()
         if exists:
-            response = {"success":"false","data":"","message":"already exists"}
-            return Response(response,status=status.HTTP_400_BAD_REQUEST)
-        if serializer.is_valid():
-            serializer.save()
-            response = {"success":"true","data": serializer.data,"message":"new user created"}
+            response = {"success":False,"data":{},"message":"already exists"}
+            return Response(response,status=status.HTTP_200_OK)
+        else:
+            new_user = User.objects.create(mail=mail,password=password,image=None,name=None,phoneNumber=None)
+            serializer = UserSerializer(new_user)
+            response = {"success":True,"data": serializer.data,"message":"Successfully signed up"}
             return Response(response,status=status.HTTP_201_CREATED)
-        response = {"success":"false","data":"", "message":"bad request"}
+        response = {"success":False,"data":{}, "message":"bad request"}
         return Response(response , status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -52,24 +51,22 @@ def user_list(request):
 def login(request):
 
     if request.method == 'POST':
-        data_input = json.dumps(request.data)
-        data_dict = json.loads(data_input)
-        requested_mail = data_dict['mail']
-        requested_password = data_dict['password']
+        requested_mail = request.POST.get('mail')
+        requested_password = request.POST.get('password')
         exists = User.objects.filter(mail = requested_mail).exists()
 
         if exists :
             user = User.objects.get(mail=requested_mail)
-
+            serializer = UserSerializer(user)
             if requested_password ==  user.password :
-                response = {"success":"true","id":user.id,"message":"logged in"}
+                response = {"success":True,"data":serializer.data,"message":"logged in"}
                 return Response(response,status=status.HTTP_200_OK)
             else:
-                response = {"success":"false","message":"password didn't match"}
-                return Response(response, status = status.HTTP_404_NOT_FOUND)
+                response = {"success":False,"message":"password didn't match"}
+                return Response(response, status = status.HTTP_200_OK)
 
         else:
-            response = {"success":"false","message":"user doesn't exist"}
+            response = {"success":False,"message":"user doesn't exist"}
             return Response(response, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -120,7 +117,8 @@ def task(request, user_id):
             reminders = None
         if not tagged:
             tagged = None
-
+        if not image:
+            image = None
         try:
             task = Task.objects.create(date=date,image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,tagged=tagged,reminders=reminders, user_id=user_id,tag_flag=tag_flag)
             taskSerializer = TaskSerializer(task)
@@ -178,21 +176,19 @@ def topTaskofDate(user_id,date):
         return None
 
 
-@api_view(['GET','POST'])
+@api_view(['POST'])
 def getTasksfromDate(request,user_id):
+
     if request.method == 'POST':
-        #data_input = json.dumps(request.data)
-        #data_dict = json.loads(data_input)
-        #date = data_dict['date']
         date = request.POST.get('date')
-        date = json.loads(date)
         try:
             allTasks = Task.objects.filter(user_id=user_id,date=date).order_by("from_time")
             serializer = TaskSerializer(allTasks, many=True)
             response = {"data":serializer.data}
             return Response(response,status=status.HTTP_200_OK)
         except:
-            pass
+            response = {"message":"error occured", "data":[]}
+            return Response(response, status=status.HTTP_400_BAD_REQUEST) 
 
 @api_view(['PUT','DELETE','GET'])
 def editTask(request, task_id):
@@ -200,8 +196,19 @@ def editTask(request, task_id):
         try:
             task = Task.objects.get(id=task_id)
             date = task.date
+            user_id = task.user_id
             task.delete()
             response = {"success":True,"message":"deleted"}
+
+            """ MonthView Update """
+            topTasks_dict = topTaskofDate(user_id,date)
+
+            monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
+            monthView_user[0].task_count = topTasks_dict['count']
+            monthView_user[0].tasks = topTasks_dict['tasks']
+            monthView_user[0].tag_flag = topTasks_dict['tag_flag']
+            monthView_user[0].save()
+            """ """
             return Response (response, status=status.HTTP_204_NO_CONTENT)
         except:
             response = {"success":False, "message":"error"}
@@ -250,6 +257,17 @@ def editTask(request, task_id):
             
             serializer = TaskSerializer(task)
             response = {"success":True,"message":"updated successfully","data":[serializer.data]}
+            
+            """post task to month view to update internally """
+
+            topTasks_dict = topTaskofDate(user_id,date)
+
+            monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
+            monthView_user[0].task_count = topTasks_dict['count']
+            monthView_user[0].tasks = topTasks_dict['tasks']
+            monthView_user[0].tag_flag = topTasks_dict['tag_flag']
+            monthView_user[0].save()
+
             return Response (response,status = status.HTTP_200_OK)
         except:
             response = {"success":False,"message":"couldn't update","data":[]}
@@ -428,10 +446,10 @@ def friend(request, user_id):
                 response = {"success":True,"data":serializer.data,"message":"all friends"}
                 return Response(response,status=status.HTTP_200_OK)
             except:
-                response = {"success":False, "data":None,"message":"error occured"} 
+                response = {"success":False, "data":[],"message":"error occured"} 
                 return Response (response, status=status.HTTP_400_BAD_REQUEST)
         else:
-            response = {"success":True,"data":None,"message":"no friend yet"}
+            response = {"success":True,"data":[],"message":"no friend yet"}
             return Response(response, status=status.HTTP_200_OK)
 
     if request.method == 'DELETE':
