@@ -1,6 +1,6 @@
 from django.db import models
 import datetime
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 from django.contrib.postgres.fields import JSONField
 #/api/models.py
@@ -14,7 +14,7 @@ class User(models.Model):
     name = models.CharField(max_length=255,blank=True,default=None, null=True)
     image = models.ImageField(upload_to='Image/', default=None, blank=True, null=True)
     phoneNumber = models.CharField(max_length=20,blank=True,default=None,null=True)
-    
+
     def __str__(self):
         return "{}".format(self.mail)
 
@@ -58,3 +58,8 @@ def friend_list_default():
 class FriendList(models.Model):
     user_id = models.IntegerField(blank=False,default=None)
     friend_list = JSONField("friends",default=friend_list_default, blank=True,null=True)
+
+class ForgotPass(models.Model):
+    mail = models.CharField(max_length=255, blank=False,unique=True)
+    token = models.CharField(max_length=20,default=None, blank=True,null=True)
+    dateTime = models.DateTimeField(default= timezone.now()- timedelta(seconds=1),blank=True)

@@ -17,6 +17,7 @@ from .models import Info
 from .models import MonthView
 from .models import Task
 from .models import FriendList
+from .models import ForgotPass
 #models---------
 
 from rest_framework.response import Response
@@ -25,6 +26,10 @@ import requests
 import dateutil.parser
 from collections import defaultdict
 
+from django.core.mail import send_mail
+from datetime import datetime,timedelta
+from django.utils import timezone
+import hashlib
 # Create your views here.
 
 @api_view (['POST'])
@@ -254,20 +259,23 @@ def editTask(request, task_id):
             task.tagged = tagged
             task.tag_flag = tag_flag
             task.save()
-            
+           
+            user_id = task.user_id
+
             serializer = TaskSerializer(task)
-            response = {"success":True,"message":"updated successfully","data":[serializer.data]}
-            
+            response = {"success":True,"message":"updated successfully","data":serializer.data}
+           
+            print("response")
             """post task to month view to update internally """
 
             topTasks_dict = topTaskofDate(user_id,date)
-
+            print("top task")
             monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
             monthView_user[0].task_count = topTasks_dict['count']
             monthView_user[0].tasks = topTasks_dict['tasks']
             monthView_user[0].tag_flag = topTasks_dict['tag_flag']
             monthView_user[0].save()
-
+            print("monthview sAVE")
             return Response (response,status = status.HTTP_200_OK)
         except:
             response = {"success":False,"message":"couldn't update","data":[]}
@@ -288,7 +296,7 @@ def editTask(request, task_id):
 def search(request, user_id , text):
 
     if request.method == 'GET':
-        tasks = Task.objects.filter(user_id=user_id, title__contains=text).order_by("from_time")
+        tasks = Task.objects.filter(user_id=user_id, title__icontains=text).order_by("from_time")
         serializer = TaskSearchSerializer(tasks, many=True)
 
         response = {"data":serializer.data}
@@ -478,7 +486,7 @@ def taskStatusOperation(request,user_id,task_id):
     if request.method == 'POST':
         complition = request.POST.get('flag')
         exists = Task.objects.filter(user_id=user_id,id=task_id)
-        
+
         #complition = json.loads(complition)
         if exists:
             try:
@@ -494,3 +502,60 @@ def taskStatusOperation(request,user_id,task_id):
         else:
             response = {"success":True,"message":"task doesn't exist"} 
             return Response (response,status = status.HTTP_200_OK)
+
+@api_view(['POST'])
+def forgotPass(request):
+    if request.method == 'POST':
+        requested_mail = request.POST.mail('mail')
+        exists = User.objects.get(mail=requested_mail).exists()
+
+        if exists:
+
+            requested_user = ForgotPass.objects.get_or_create(mail=requested_mail)
+
+            last_update = requested_user.dateTime
+
+            if timezone.now() > last_update :
+                uid = str(uuid.uuid4())
+                newStr = uid+mail
+                binary = newStr.encode('ascii')
+                hash_object = hashlib.sha1(binary)
+                hexvalue = hash_object.hexdigest()
+                token = hexvalue[:8]
+                requested_user.token = token
+                requested_user.dateTime = timezone.now() + timedelta(seconds=30)
+
+                send_mail('password recover','your code is '+ token,'umbrubayet@gmail.com',[requested_mail])
+                response = {"success":True,"message":"mail sent"}
+                return Response(response,status=status.HTTP_200_OK)
+            else:
+                response = {"success":False,"message":"Too frequent recovey request. wait 30 seconds.."}
+                return Response (response, status=status.HTTP_200_OK)
+        else:
+            response  ={"success":True,"message":"mail sent"}
+            return Response(response,status = status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def matchForgotPass(request):
+    if request.method == 'POST':
+        token  = request.POST.get('token')
+        new_password = request.POST.get('password')
+
+        exists = ForgotPass.objects.filter(token=token).exists()
+
+        if exists:
+            gajni_user = ForgotPass.objects.get(token=token)
+            gajni_mail = gajni_user.mail
+            user = User.objects.get(mail=gajni_mail)
+            user.password = new_password
+            user.save()
+
+            gajni_user.delete()
+
+            response = {"success":True, "message":"password updated successfully"}
+            return Response(response, status=status.HTTP_200_OK)
+
+        else:
+            response = {"success":False, "message":"invalid token"}
+            return Response(response, status= status.HTTP_200_OK)

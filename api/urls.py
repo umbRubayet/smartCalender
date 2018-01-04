@@ -18,6 +18,8 @@ urlpatterns = [
     url(r'^findFriend/(?P<user_id>\d+)/(?P<key>.+)/$',views.findFriend),
     url(r'^friend/(?P<user_id>\d+)/$',views.friend),
     url(r'^taskStatus/(?P<user_id>\d+)/(?P<task_id>\d+)/$',views.taskStatusOperation),
+    url(r'^forgotpassword/$',views.forgotPass),
+    url(r'^matchtoken/$',views.matchForgotPass),
 ] + static(settings.MEDIA_URL, document_root= settings.MEDIA_ROOT)
 
 urlpatterns = format_suffix_patterns(urlpatterns)
