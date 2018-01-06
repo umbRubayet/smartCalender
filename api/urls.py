@@ -5,7 +5,9 @@ from rest_framework.urlpatterns import format_suffix_patterns
 from api import views
 from  django.conf.urls.static import static
 from django.conf import settings
+
 urlpatterns = [
+    #url(r'fcm/', include('fcm.urls')),
     url(r'^signup/$', views.user_list),
     url(r'^login/$', views.login),
     #url(r'^tasks/$',views.tasks),
@@ -20,6 +22,8 @@ urlpatterns = [
     url(r'^taskStatus/(?P<user_id>\d+)/(?P<task_id>\d+)/$',views.taskStatusOperation),
     url(r'^forgotpassword/$',views.forgotPass),
     url(r'^matchtoken/$',views.matchForgotPass),
+    url(r'^syncdata/(?P<user_id>)/$',views.syncTask),
+    #url(r'^fcm/', include('fcm.urls')),
 ] + static(settings.MEDIA_URL, document_root= settings.MEDIA_ROOT)
 
 urlpatterns = format_suffix_patterns(urlpatterns)

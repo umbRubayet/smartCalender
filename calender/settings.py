@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'api',
+    'fcm_django',
 ]
 
 MIDDLEWARE = [
@@ -144,3 +145,8 @@ EMAIL_HOST_USER = 'umbrubayet@gmail.com'
 EMAIL_PORT =587 
 EMAIL_USE_SSL = False
 SERVER_EMAIL = 'umbrubayet@gmail.com'
+
+
+
+FCM_APIKEY = "AAAAlkj3tIM:APA91bELaQHJRy709Qlol7bAvbDfdioSQXQ64WEvj5xPgyj0ASiQOV-5H0JLgXXAeptQ9TAZfOlCAkjcq7qEDHFCHwYGTWUwicAPFVscP_Wliuer42t6BjsT9rPSFjshmQfmcNYFK8KI"
+

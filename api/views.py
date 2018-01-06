@@ -30,6 +30,7 @@ from django.core.mail import send_mail
 from datetime import datetime,timedelta
 from django.utils import timezone
 import hashlib
+import uuid
 # Create your views here.
 
 @api_view (['POST'])
@@ -106,11 +107,14 @@ def task(request, user_id):
         to_time = request.POST.get('to_time')
         description = request.POST.get('description')
         reminders = request.POST.get('reminders')
+        print("reminder.. "+ reminders)
         reminders = json.loads(reminders)
         tagged = request.POST.get('tagged')
+        print("tag.. "+ tagged)
         tagged = json.loads(tagged)
         tag_flag = request.POST.get('tag_flag')
         tag_flag = json.loads(tag_flag)
+        
 
         if not from_time:
             from_time=None
@@ -506,25 +510,27 @@ def taskStatusOperation(request,user_id,task_id):
 @api_view(['POST'])
 def forgotPass(request):
     if request.method == 'POST':
-        requested_mail = request.POST.mail('mail')
-        exists = User.objects.get(mail=requested_mail).exists()
+        requested_mail = request.POST.get('mail')
+        exists = User.objects.filter(mail=requested_mail).exists()
 
         if exists:
 
             requested_user = ForgotPass.objects.get_or_create(mail=requested_mail)
 
-            last_update = requested_user.dateTime
+            last_update = requested_user[0].dateTime
 
             if timezone.now() > last_update :
                 uid = str(uuid.uuid4())
-                newStr = uid+mail
+                newStr = uid+requested_mail
                 binary = newStr.encode('ascii')
                 hash_object = hashlib.sha1(binary)
                 hexvalue = hash_object.hexdigest()
                 token = hexvalue[:8]
-                requested_user.token = token
-                requested_user.dateTime = timezone.now() + timedelta(seconds=30)
-
+                print("token type "+str(type(token)) )
+                print("token"+ token)
+                requested_user[0].token = token
+                requested_user[0].dateTime = timezone.now() + timedelta(seconds=30)
+                requested_user[0].save()
                 send_mail('password recover','your code is '+ token,'umbrubayet@gmail.com',[requested_mail])
                 response = {"success":True,"message":"mail sent"}
                 return Response(response,status=status.HTTP_200_OK)
@@ -532,7 +538,7 @@ def forgotPass(request):
                 response = {"success":False,"message":"Too frequent recovey request. wait 30 seconds.."}
                 return Response (response, status=status.HTTP_200_OK)
         else:
-            response  ={"success":True,"message":"mail sent"}
+            response  ={"success":False,"message":"mail sent"}
             return Response(response,status = status.HTTP_200_OK)
 
 
@@ -559,3 +565,46 @@ def matchForgotPass(request):
         else:
             response = {"success":False, "message":"invalid token"}
             return Response(response, status= status.HTTP_200_OK)
+
+@api_view(['POST'])
+def syncTask(request,user_id):
+    if request.method == 'POST':
+
+        data = request.POST.get('data')
+        data_list = json.loads(data)
+
+        for task in data_list:
+            date = task['date']
+            title = task['title']
+            from_time = task['from_time']
+            to_time = task['to_time']
+
+            if not from_time:
+                from_time = None
+            if not to_time:
+                to_time = None
+        
+            image = None
+            category = "Event"
+            description = None
+            complete = False
+            tagged = []
+            tag_flag = False
+            reminders = []
+
+            try :
+                task = Task.objects.create(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders)
+            
+                topTask_dict = {} 
+                topTasks_dict = topTaskofDate(user_id,date)
+                monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
+                monthView_user[0].task_count = topTasks_dict['count']
+                monthView_user[0].tasks = topTasks_dict['tasks']
+                monthView_user[0].tag_flag = topTasks_dict['tag_flag']
+                monthView_user[0].save()
+
+            except:
+                pass
+
+        response = {"success":True,"message":"successfully updated"}
+        return Response(response, status= status.HTTP_200_OK)
