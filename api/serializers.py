@@ -7,6 +7,8 @@ from .models import MonthView
 from .models import Task
 from .models import FriendList
 import json
+from .models import Weather
+
 class UserSerializer(serializers.ModelSerializer):
 
 
@@ -50,3 +52,8 @@ class TaskSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = ('id','title','date','from_time','tag_flag')
+
+class WeatherSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Weather
+        fields = ('city','atm','astronomy','forecast')

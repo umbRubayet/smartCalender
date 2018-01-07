@@ -63,3 +63,11 @@ class ForgotPass(models.Model):
     mail = models.CharField(max_length=255, blank=False,unique=True)
     token = models.CharField(max_length=20,default=None, blank=True,null=True)
     dateTime = models.DateTimeField(default= timezone.now()- timedelta(seconds=1),blank=True)
+   
+class Weather(models.Model):
+    country = models.CharField(max_length=255, default = None, blank=False, null=True)
+    city = models.CharField(max_length=255, default = None, blank=False, null=True)
+    last_update = models.DateTimeField(default=None, blank=False,null=True)
+    atm = JSONField(default=None, blank=False, null=True)
+    astronomy = JSONField(default = None, blank=False, null=True)
+    forecast = JSONField(default = None, blank=False, null=True)

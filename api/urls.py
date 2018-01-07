@@ -22,7 +22,8 @@ urlpatterns = [
     url(r'^taskStatus/(?P<user_id>\d+)/(?P<task_id>\d+)/$',views.taskStatusOperation),
     url(r'^forgotpassword/$',views.forgotPass),
     url(r'^matchtoken/$',views.matchForgotPass),
-    url(r'^syncdata/(?P<user_id>)/$',views.syncTask),
+    url(r'^syncdata/(?P<user_id>\d+)/$',views.syncTask),
+    url(r'^forecast/(?P<city>\w+)/$',views.weatherForecast),
     #url(r'^fcm/', include('fcm.urls')),
 ] + static(settings.MEDIA_URL, document_root= settings.MEDIA_ROOT)
 

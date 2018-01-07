@@ -8,6 +8,7 @@ from .serializers import TaskSerializer
 from .serializers import ProfileSerializer
 from .serializers import TopTaskSerializer
 from .serializers import TaskSearchSerializer
+from .serializers import WeatherSerializer
 #serializers--------
 
 
@@ -18,6 +19,7 @@ from .models import MonthView
 from .models import Task
 from .models import FriendList
 from .models import ForgotPass
+from .models import Weather
 #models---------
 
 from rest_framework.response import Response
@@ -31,13 +33,14 @@ from datetime import datetime,timedelta
 from django.utils import timezone
 import hashlib
 import uuid
+import requests
 # Create your views here.
 
 @api_view (['POST'])
 def user_list(request):
 
     if request.method =='POST':
-        
+
         mail = request.POST.get('mail')
         password = request.POST.get('password')
         exists = User.objects.filter(mail=mail).exists()
@@ -171,7 +174,7 @@ def topTaskofDate(user_id,date):
         tag_flag = False
         if tag_tasks.count() > 0:
             tag_flag = True
-            
+
         topThreeTasks = allTasks[:3]
         topTaskSerializer = TopTaskSerializer(topThreeTasks, many=True)
 
@@ -583,7 +586,7 @@ def syncTask(request,user_id):
                 from_time = None
             if not to_time:
                 to_time = None
-        
+
             image = None
             category = "Event"
             description = None
@@ -591,11 +594,12 @@ def syncTask(request,user_id):
             tagged = []
             tag_flag = False
             reminders = []
-
+            
+            print("date .. "+str(date))
             try :
                 task = Task.objects.create(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders)
-            
-                topTask_dict = {} 
+
+                topTask_dict = {}
                 topTasks_dict = topTaskofDate(user_id,date)
                 monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
                 monthView_user[0].task_count = topTasks_dict['count']
@@ -603,8 +607,80 @@ def syncTask(request,user_id):
                 monthView_user[0].tag_flag = topTasks_dict['tag_flag']
                 monthView_user[0].save()
 
-            except:
+            except Exception as exc:
+                print("eception.... "+str(exc))
                 pass
-
+            
         response = {"success":True,"message":"successfully updated"}
         return Response(response, status= status.HTTP_200_OK)
+
+@api_view(['POST'])
+def weatherForecast(request, city):
+    if request.method == 'POST':
+        
+        lat = request.POST.get('lat')
+        lan = request.POST.get('lan')
+
+        exists = Weather.objects.filter(city=city).exists()
+
+        headers = {'X-Mashape-Key':'7VMha4L2otmshWK1NdInqJP6ZT3fp1WBxYGjsnV3MfkFVH8lYW'}
+        url = 'https://simple-weather.p.mashape.com/weatherdata?lat='+str(lat)+'&lng='+str(lan)
+
+        if exists:
+            data = Weather.objects.get(city=city)
+            last_update = data.last_update
+            if timezone.now() >  last_update:
+                response = requests.get(url, headers=headers)
+                if response.status_code == 200:
+                    try:
+                        response_data = json.loads(response.text)
+                        base_object = response_data['query']['results']['channel']
+                        atm = base_object['atmosphere']
+                        astronomy = base_object['astronomy']
+                        forecast = base_object['item']['forecast']
+
+                        data.atm = atm
+                        data.astronomy = astronomy
+                        data.forecast = forecast
+                        data.last_update = timezone.now() + timedelta(hours=6)
+                        data.save()
+
+                        serializer = WeatherSerializer(data)
+                        response = {"success":True,"data":serializer.data,"message":"weather data"}
+                        return Response(response,status=status.HTTP_200_OK)
+                    except Exception as exc:
+                        print("...."+str(exc)+"...")
+                        response = {"success":False,"data":{},"message":"couldn't load weather"}
+                        return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
+                else:
+                    response = {"success":False,"data":{},"message":"weather data service problem"}
+                    return Response(response, status= status.HTTP_404_NOT_FOUND)
+
+            else:
+                serializer = WeatherSerializer(data)
+                response = {"success":True,"data":serializer.data,"message":"weather data"}
+                return Response(response,status=status.HTTP_200_OK)
+        else:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                try:
+                    response_data = json.loads(response.text)
+                    base_object = response_data['query']['results']['channel']
+                    atm = base_object['atmosphere']
+                    astronomy = base_object['astronomy']
+                    forecast = base_object['item']['forecast']
+                    country = base_object['location']['country']
+                    city = base_object['location']['city']
+                    last_update = timezone.now() + timedelta(hours=6)
+                    weather = Weather.objects.create(last_update=last_update,country=country,city=city,atm=atm,astronomy=astronomy,forecast=forecast)
+                    serializer = WeatherSerializer(weather)
+                    response = {"success":True,"data":serializer.data,"message":"weather data"}
+                    return Response(response,status=status.HTTP_200_OK)
+                except Exception as exc:
+                    print("...."+str(exc)+"...")
+                    response = {"success":False,"data":{},"message":"couldn't load weather"}
+                    return Response(response,status=status.HTTP_400_BAD_REQUEST)
+            else:
+                response = {"success":False,"data":{},"message":"weather data service problem"}
+                return Response(response, status= status.HTTP_404_NOT_FOUND)
