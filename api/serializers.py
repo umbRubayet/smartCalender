@@ -8,6 +8,7 @@ from .models import Task
 from .models import FriendList
 import json
 from .models import Weather
+from .models import Holiday
 
 class UserSerializer(serializers.ModelSerializer):
 
@@ -57,3 +58,8 @@ class WeatherSerializer(serializers.ModelSerializer):
     class Meta:
         model = Weather
         fields = ('city','atm','astronomy','forecast')
+
+class HolidaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Holiday
+        fields = ('id','country','year','holidays')

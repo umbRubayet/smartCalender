@@ -24,6 +24,7 @@ urlpatterns = [
     url(r'^matchtoken/$',views.matchForgotPass),
     url(r'^syncdata/(?P<user_id>\d+)/$',views.syncTask),
     url(r'^forecast/(?P<city>\w+)/$',views.weatherForecast),
+    url(r'^holiday/(?P<country>\w+)/$',views.holiday),
     #url(r'^fcm/', include('fcm.urls')),
 ] + static(settings.MEDIA_URL, document_root= settings.MEDIA_ROOT)
 

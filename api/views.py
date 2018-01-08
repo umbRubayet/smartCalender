@@ -9,6 +9,7 @@ from .serializers import ProfileSerializer
 from .serializers import TopTaskSerializer
 from .serializers import TaskSearchSerializer
 from .serializers import WeatherSerializer
+from .serializers import HolidaySerializer
 #serializers--------
 
 
@@ -20,6 +21,7 @@ from .models import Task
 from .models import FriendList
 from .models import ForgotPass
 from .models import Weather
+from .models import Holiday
 #models---------
 
 from rest_framework.response import Response
@@ -34,6 +36,9 @@ from django.utils import timezone
 import hashlib
 import uuid
 import requests
+
+import csv
+import pandas as pd
 # Create your views here.
 
 @api_view (['POST'])
@@ -131,11 +136,13 @@ def task(request, user_id):
             tagged = None
         if not image:
             image = None
+        print("before try")
         try:
             task = Task.objects.create(date=date,image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,tagged=tagged,reminders=reminders, user_id=user_id,tag_flag=tag_flag)
             taskSerializer = TaskSerializer(task)
             response = {"success":True, "data":taskSerializer.data, "message":"new task added"}
-
+            
+            print("task data save")
             """post task to month view to update internally """
 
             topTasks_dict = topTaskofDate(user_id,date)
@@ -146,9 +153,11 @@ def task(request, user_id):
             monthView_user[0].tag_flag = topTasks_dict['tag_flag']
             monthView_user[0].save()
 
+            print("monthview")
             return Response(response, status = status.HTTP_201_CREATED)
 
         except Exception as excep:
+            print("exception..." + str(excep))
             response = {"success":False,"message":excep}
             return Response(response, status=status.HTTP_400_BAD_REQUEST)
 
@@ -575,45 +584,47 @@ def syncTask(request,user_id):
 
         data = request.POST.get('data')
         data_list = json.loads(data)
+        
+        try:
+            for task in data_list:
+                date = task['date']
+                title = task['title']
+                from_time = task['from_time']
+                to_time = task['to_time']
 
-        for task in data_list:
-            date = task['date']
-            title = task['title']
-            from_time = task['from_time']
-            to_time = task['to_time']
+                if not from_time:
+                    from_time = None
+                if not to_time:
+                    to_time = None
 
-            if not from_time:
-                from_time = None
-            if not to_time:
-                to_time = None
-
-            image = None
-            category = "Event"
-            description = None
-            complete = False
-            tagged = []
-            tag_flag = False
-            reminders = []
+                image = None
+                category = "Event"
+                description = None
+                complete = False
+                tagged = []
+                tag_flag = False
+                reminders = []
             
-            print("date .. "+str(date))
-            try :
-                task = Task.objects.create(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders)
+                print("date .. "+str(date))
+                try :
+                    task = Task.objects.create(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders)
 
-                topTask_dict = {}
-                topTasks_dict = topTaskofDate(user_id,date)
-                monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
-                monthView_user[0].task_count = topTasks_dict['count']
-                monthView_user[0].tasks = topTasks_dict['tasks']
-                monthView_user[0].tag_flag = topTasks_dict['tag_flag']
-                monthView_user[0].save()
+                    topTask_dict = {}
+                    topTasks_dict = topTaskofDate(user_id,date)
+                    monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
+                    monthView_user[0].task_count = topTasks_dict['count']
+                    monthView_user[0].tasks = topTasks_dict['tasks']
+                    monthView_user[0].tag_flag = topTasks_dict['tag_flag']
+                    monthView_user[0].save()
 
-            except Exception as exc:
-                print("eception.... "+str(exc))
-                pass
+                except Exception as exc:
+                    print("eception.... "+str(exc))
+                    pass
             
-        response = {"success":True,"message":"successfully updated"}
-        return Response(response, status= status.HTTP_200_OK)
-
+            response = {"success":True,"message":"successfully updated"}
+            return Response(response, status= status.HTTP_200_OK)
+        except Exception as ex:
+            print("exception "+ str(ex))
 @api_view(['POST'])
 def weatherForecast(request, city):
     if request.method == 'POST':
@@ -684,3 +695,23 @@ def weatherForecast(request, city):
             else:
                 response = {"success":False,"data":{},"message":"weather data service problem"}
                 return Response(response, status= status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+def holiday(request,country):
+    if request.method == 'POST':
+        df = pd.read_csv("holiday.csv")
+        target_rows = df.loc[df['country']==country]
+        all_holidays = []
+        for index,row in target_rows.iterrows():
+            data = {}
+            data['holiday_name'] = row['holiday_name']
+            data['holiday_date'] = row['holiday_date']
+            all_holidays.append(data)
+
+        holiday = Holiday.objects.get_or_create(country=country,year=2018,holidays=all_holidays)    
+        serializer = HolidaySerializer(holiday)
+        print(serializer.data)
+        response = {"success":True,"message": country+" holiday added", "data":serializer.data}
+        return Response(response,status=status.HTTP_200_OK)
+
+    
