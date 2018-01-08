@@ -9,7 +9,7 @@ from .models import FriendList
 import json
 from .models import Weather
 from .models import Holiday
-
+from .models import Group
 class UserSerializer(serializers.ModelSerializer):
 
 
@@ -63,3 +63,8 @@ class HolidaySerializer(serializers.ModelSerializer):
     class Meta:
         model = Holiday
         fields = ('id','country','year','holidays')
+
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ('id','user_id','group_name','group_list')

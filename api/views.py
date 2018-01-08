@@ -10,6 +10,7 @@ from .serializers import TopTaskSerializer
 from .serializers import TaskSearchSerializer
 from .serializers import WeatherSerializer
 from .serializers import HolidaySerializer
+from .serializers import GroupSerializer
 #serializers--------
 
 
@@ -22,6 +23,7 @@ from .models import FriendList
 from .models import ForgotPass
 from .models import Weather
 from .models import Holiday
+from .models import Group
 #models---------
 
 from rest_framework.response import Response
@@ -714,4 +716,76 @@ def holiday(request,country):
         response = {"success":True,"message": country+" holiday added", "data":serializer.data}
         return Response(response,status=status.HTTP_200_OK)
 
-    
+@api_view(['POST','GET','PUT','DELETE'])
+def group(request,user_id):
+    if request.method == 'POST':
+        group_name = request.POST.get('group_name')
+        group_list = request.POST.get('group_list')
+        print(str(type(group_list)))
+        group_list = json.loads(group_list)
+        print(str(type(group_list)))
+
+        try:
+            group = Group.objects.create(user_id=user_id,group_name=group_name,group_list=group_list)
+            serializer = GroupSerializer(group)
+            group_friends = User.objects.filter(id__in=group_list)
+            group_friends_serializer = ProfileSerializer(group_friends, many=True)
+            friends_dict = {}
+            friends_dict['group_id'] = group.id
+            friends_dict['group_friends'] = group_friends_serializer.data
+            response = {"success":True,"message":"group created","group_data":serializer.data,"group_friends":friends_dict}
+            return Response (response,status=status.HTTP_201_CREATED)
+        except Exception as exc:
+            print('exception... '+ str(exc))
+            response = {"success":False, "message":"exception..","group_data":{},"group_friends":{[]}}
+            return Response(response, status= status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'GET':
+        try:
+            groups = Group.objects.filter(user_id=user_id)
+            serializer = GroupSerializer(groups, many=True)
+            for group in serializer.data:
+                group_friends = User.objects.filter(id__in=group['group_list'])
+                group_friends_serializer = ProfileSerializer(group_friends, many=True)
+                group['friends'] = group_friends_serializer.data
+            response = {"success":True,"message":"groups","data":serializer.data}
+            return Response (response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("exception..." + str(ex))
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+            return Response ()
+
+    elif request.method == 'DELETE':
+        try:
+            group_id = request.POST.get('group_id')
+            group = Group.objects.get(id=group_id)
+            group_name = group.group_name
+            group.delete()
+            response = {"success":True,"message":group_name+" group deleted"}
+            return Response (response, status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("exception ... "+ str(ex))
+            response = {"success":False,"message":"exception.."}
+            return Response (response, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'PUT':
+        try:
+            group_id = request.POST.get('group_id')
+            group_name = request.POST.get('group_name')
+            group_list = request.POST.get('group_list')
+            group_list = json.loads(group_list)
+
+            group = Group.objects.get(id = group_id)
+            group.group_name = group_name
+            group.group_list = group_list
+            group.save()
+
+            serializer = GroupSerializer(group)
+            response = {"success":True,"message":"group updated"}
+            return Response (response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("exception..." + str(ex))
+            response = {"success":False,"message":"error...."}
+            return Response (response, status =status.HTTP_400_OK)
+

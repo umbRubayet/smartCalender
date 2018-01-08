@@ -76,3 +76,10 @@ class Holiday(models.Model):
     country = models.CharField(max_length=255, default=None, blank=False, null=True)
     year = models.IntegerField(max_length=20,default=None, blank=False, null=True)
     holidays = JSONField(default = None, blank=False, null=True)
+
+def group_default():
+    return []
+class Group(models.Model):
+    user_id = models.IntegerField(blank=False,default = None)
+    group_name = models.CharField(max_length=255, default = None, blank=True, null=True)
+    group_list = JSONField(default=group_default, blank=True, null=True)
