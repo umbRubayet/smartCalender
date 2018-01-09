@@ -83,3 +83,8 @@ class Group(models.Model):
     user_id = models.IntegerField(blank=False,default = None)
     group_name = models.CharField(max_length=255, default = None, blank=True, null=True)
     group_list = JSONField(default=group_default, blank=True, null=True)
+
+class TagMe(models.Model):
+    tagged_id = models.IntegerField(blank=False,default=None)
+    tagger_id = models.IntegerField(blank=False,default=None)
+    task_id = models.IntegerField(blank=False,default=None)

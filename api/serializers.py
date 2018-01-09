@@ -10,6 +10,8 @@ import json
 from .models import Weather
 from .models import Holiday
 from .models import Group
+from .models import TagMe
+
 class UserSerializer(serializers.ModelSerializer):
 
 
@@ -68,3 +70,8 @@ class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = ('id','user_id','group_name','group_list')
+
+class TagMeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TagMe
+        fields = ('id','tagged_id','tagger_id','task_id')

@@ -11,6 +11,7 @@ from .serializers import TaskSearchSerializer
 from .serializers import WeatherSerializer
 from .serializers import HolidaySerializer
 from .serializers import GroupSerializer
+from .serializers import TagMeSerializer
 #serializers--------
 
 
@@ -24,6 +25,7 @@ from .models import ForgotPass
 from .models import Weather
 from .models import Holiday
 from .models import Group
+from .models import TagMe
 #models---------
 
 from rest_framework.response import Response
@@ -117,14 +119,12 @@ def task(request, user_id):
         to_time = request.POST.get('to_time')
         description = request.POST.get('description')
         reminders = request.POST.get('reminders')
-        print("reminder.. "+ reminders)
         reminders = json.loads(reminders)
         tagged = request.POST.get('tagged')
-        print("tag.. "+ tagged)
         tagged = json.loads(tagged)
         tag_flag = request.POST.get('tag_flag')
         tag_flag = json.loads(tag_flag)
-        
+
 
         if not from_time:
             from_time=None
@@ -138,13 +138,11 @@ def task(request, user_id):
             tagged = None
         if not image:
             image = None
-        print("before try")
         try:
             task = Task.objects.create(date=date,image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,tagged=tagged,reminders=reminders, user_id=user_id,tag_flag=tag_flag)
             taskSerializer = TaskSerializer(task)
             response = {"success":True, "data":taskSerializer.data, "message":"new task added"}
-            
-            print("task data save")
+
             """post task to month view to update internally """
 
             topTasks_dict = topTaskofDate(user_id,date)
@@ -155,12 +153,18 @@ def task(request, user_id):
             monthView_user[0].tag_flag = topTasks_dict['tag_flag']
             monthView_user[0].save()
 
+            if tagged:
+                for tagged_obj in tagged:
+                    tagged_id = json.loads(tagged_obj['userId'])
+                    TagMe.objects.create(tagged_id=tagged_id,tagger_id=user_id,task_id=task.id)
+
             print("monthview")
             return Response(response, status = status.HTTP_201_CREATED)
 
         except Exception as excep:
             print("exception..." + str(excep))
-            response = {"success":False,"message":excep}
+            response = {"success":False,"message":"exception occured . . ","data":[]}
+
             return Response(response, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'GET':
@@ -170,11 +174,8 @@ def task(request, user_id):
             response = {"success":True, "message":"all detailed tasks", "data":serializer.data}
             return Response (response, status= status.HTTP_200_OK)
         except Exception as ex:
-            response = {"success":False,"message":"error occured", "data":"" }
-            return Response (response, status=status.HTTP_404_NOT_FOUND)
-
-        response = {"success":False, "message":"others error", "data":""}
-        return Response(response, status=status.HTTP_400_BAD_REQUEST)
+            response = {"success":False,"message":"error occured", "data":[] }
+            return Response (response, status=status.HTTP_400_NOT_FOUND)
 
 def topTaskofDate(user_id,date):
     try:
@@ -207,10 +208,10 @@ def getTasksfromDate(request,user_id):
         try:
             allTasks = Task.objects.filter(user_id=user_id,date=date).order_by("from_time")
             serializer = TaskSerializer(allTasks, many=True)
-            response = {"data":serializer.data}
+            response = {"success":True,"message":"all tasks of date","data":serializer.data}
             return Response(response,status=status.HTTP_200_OK)
         except:
-            response = {"message":"error occured", "data":[]}
+            response = {"success":False,"message":"error occured", "data":[]}
             return Response(response, status=status.HTTP_400_BAD_REQUEST) 
 
 @api_view(['PUT','DELETE','GET'])
@@ -232,10 +233,10 @@ def editTask(request, task_id):
             monthView_user[0].tag_flag = topTasks_dict['tag_flag']
             monthView_user[0].save()
             """ """
-            return Response (response, status=status.HTTP_204_NO_CONTENT)
+            return Response (response, status=status.HTTP_200_OK)
         except:
             response = {"success":False, "message":"error"}
-            return Response (response, status=status.HTTP_404_NOT_FOUND)
+            return Response (response, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'PUT':
         date = request.POST.get('date')
@@ -277,12 +278,12 @@ def editTask(request, task_id):
             task.tagged = tagged
             task.tag_flag = tag_flag
             task.save()
-           
+
             user_id = task.user_id
 
             serializer = TaskSerializer(task)
-            response = {"success":True,"message":"updated successfully","data":serializer.data}
-           
+            response = {"success":True,"message":"updated successfully","data":[serializer.data]}
+
             print("response")
             """post task to month view to update internally """
 
@@ -314,11 +315,16 @@ def editTask(request, task_id):
 def search(request, user_id , text):
 
     if request.method == 'GET':
-        tasks = Task.objects.filter(user_id=user_id, title__icontains=text).order_by("from_time")
-        serializer = TaskSearchSerializer(tasks, many=True)
+        try:
+            tasks = Task.objects.filter(user_id=user_id, title__icontains=text).order_by("from_time")
+            serializer = TaskSearchSerializer(tasks, many=True)
 
-        response = {"data":serializer.data}
-        return Response(response, status=status.HTTP_200_OK)
+            response = {"data":serializer.data}
+            return Response(response, status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("Exception... "+ str(ex))
+            response = {"data":[]}
+            return Response (response, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET','PUT'])
 def profile(request, mail):
@@ -333,16 +339,16 @@ def profile(request, mail):
             image = request.data['file']
             user.image=image
         except:
-            user.image=None 
+            user.image=None
         try:
             name = request.data['name']
             user.name=name
         except:
-            user.name=None 
+            user.name=None
         try:
             phoneNumber = request.data['phoneNumber']
         except:
-            pass 
+            pass
         try:
             password = request.data['password']
         except:
@@ -359,7 +365,7 @@ def profile(request, mail):
             return Response(response, status=status.HTTP_200_OK)
         except:
             response = {"success":False,"message":"Update was unsuccessfull"}
-            return Response(response,status=status.HTTP_202_ACCEPTED)
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'GET':
         exists = User.objects.filter(mail=mail).exists()
@@ -374,7 +380,7 @@ def profile(request, mail):
                 return Response(response,status=status.HTTP_400_BAD_REQUEST)
 
         else:
-            response = {"success":True, "message":"user not found","data":""}
+            response = {"success":True, "message":"user not found","data":{}}
             return Response(response,status=status.HTTP_404_NOT_FOUND)
 
 
@@ -586,7 +592,7 @@ def syncTask(request,user_id):
 
         data = request.POST.get('data')
         data_list = json.loads(data)
-        
+
         try:
             for task in data_list:
                 date = task['date']
@@ -606,7 +612,7 @@ def syncTask(request,user_id):
                 tagged = []
                 tag_flag = False
                 reminders = []
-            
+
                 print("date .. "+str(date))
                 try :
                     task = Task.objects.create(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders)
@@ -622,15 +628,17 @@ def syncTask(request,user_id):
                 except Exception as exc:
                     print("eception.... "+str(exc))
                     pass
-            
+
             response = {"success":True,"message":"successfully updated"}
             return Response(response, status= status.HTTP_200_OK)
         except Exception as ex:
             print("exception "+ str(ex))
+            response = {"success":False,"message":"exception . . ."}
+            return Response (response, status = status.HTTP_400_OK)
 @api_view(['POST'])
 def weatherForecast(request, city):
     if request.method == 'POST':
-        
+
         lat = request.POST.get('lat')
         lan = request.POST.get('lan')
 
@@ -710,7 +718,7 @@ def holiday(request,country):
             data['holiday_date'] = row['holiday_date']
             all_holidays.append(data)
 
-        holiday = Holiday.objects.get_or_create(country=country,year=2018,holidays=all_holidays)    
+        holiday = Holiday.objects.get_or_create(country=country,year=2018,holidays=all_holidays)
         serializer = HolidaySerializer(holiday)
         print(serializer.data)
         response = {"success":True,"message": country+" holiday added", "data":serializer.data}
@@ -752,9 +760,8 @@ def group(request,user_id):
             return Response (response,status=status.HTTP_200_OK)
         except Exception as ex:
             print("exception..." + str(ex))
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-            return Response ()
+            response = {"success": False , "message":"exception..."}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
         try:
@@ -789,3 +796,36 @@ def group(request,user_id):
             response = {"success":False,"message":"error...."}
             return Response (response, status =status.HTTP_400_OK)
 
+@api_view(['GET','DELETE'])
+def tagMe(request,tagged_id):
+    if request.method == 'GET':
+        try:
+            tags = TagMe.objects.filter(tagged_id=tagged_id)
+            serializer = TagMeSerializer(tags,many=True)
+            for tag in serializer.data:
+                tagger = User.objects.get(id=tag['tagger_id'])
+                tagger_serializer = ProfileSerializer(tagger)
+                tag['tagger'] = tagger_serializer.data
+                task  = Task.objects.get(id=tag['task_id'])
+                task_serializer = TaskSerializer(task)
+                tag['task'] = task_serializer.data
+
+            response = {"success":True,"message":"tagged tasks","data":serializer.data}
+            return Response (response, status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("exception..." + str(ex))
+            response = {"success":False,"message":"error...","data":[]}
+            return Response (response, status = status.HTTP_400_BAD_REQUEST)
+
+    if request.method =='DELETE':
+        tag_id = request.POST.get('tag_id')
+
+        try:
+            tag = TagMe.objects.get(id=tag_id)
+            tag.delete()
+            response = {"success":True,"message":"deleted"}
+            return Response (response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print ("exception tag me ... "+ str(ex))
+            response = {"success":False,"message":"error ...","data":[]}
+            return Response (response, status=status.HTTP_400_BAD_REQUEST)
