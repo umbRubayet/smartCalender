@@ -555,6 +555,7 @@ def taskStatusOperation(request,user_id,task_id):
 
     if request.method == 'POST':
         complition = request.POST.get('flag')
+        complition = json.loads(complition)
         exists = Task.objects.filter(user_id=user_id,id=task_id)
 
         #complition = json.loads(complition)
@@ -566,7 +567,8 @@ def taskStatusOperation(request,user_id,task_id):
 
                 response = {"success":True, "message":"updated"}
                 return Response(response, status = status.HTTP_200_OK)
-            except:
+            except Exception as ex:
+                print("taskstatus exception... "+ str(ex))
                 response = {"success":False, "message":"error"}
                 return Response (response, status = status.HTTP_400_BAD_REQUEST)
         else:
@@ -681,6 +683,7 @@ def syncTask(request,user_id):
             print("exception "+ str(ex))
             response = {"success":False,"message":"exception . . ."}
             return Response (response, status = status.HTTP_400_OK)
+
 @api_view(['POST'])
 def weatherForecast(request, city):
     if request.method == 'POST':
@@ -770,7 +773,7 @@ def holiday(request,country):
         response = {"success":True,"message": country+" holiday added", "data":serializer.data}
         return Response(response,status=status.HTTP_200_OK)
 
-@api_view(['POST','GET','PUT','DELETE'])
+@api_view(['POST','GET'])
 def group(request,user_id):
     if request.method == 'POST':
         group_name = request.POST.get('group_name')
@@ -809,22 +812,44 @@ def group(request,user_id):
             response = {"success": False , "message":"exception..."}
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == 'DELETE':
+@api_view(['GET','PUT','DELETE'])
+def singleGroup(request,user_id,group_id):
+    if request.method == 'GET':
         try:
-            group_id = request.POST.get('group_id')
+            group = Group.objects.get(id=group_id)
+            serializer = GroupSerializer(group)
+            group_people_list = group['group_list']
+            if group_people_list:
+                group_friends = User.objects.filter(id__in=group_people_list)
+                group_friends_serializer = ProfileSerializer(group_friends, many=True)
+                friends_dict = {}
+                friends_dict['group_id'] = group.id
+                friends_dict['group_friends'] = group_friends_serializer.data
+            else:
+                friends_dict = {}
+                friends_dict['group_id'] = group.id
+                friends_dict['group_friends'] =[]
+            response = {"success":True,"message":"group data","data":[serializer.data],"group_friends":friends_dict}
+        except Exception as ex:
+            print("exception..." + str(ex))
+            response = {"success":False,"message":"error...."}
+            return Response (response, status=status.HTTP_400_OK)
+
+    if request.method == 'DELETE':
+        try:
             group = Group.objects.get(id=group_id)
             group_name = group.group_name
             group.delete()
             response = {"success":True,"message":group_name+" group deleted"}
             return Response (response, status=status.HTTP_200_OK)
+
         except Exception as ex:
             print("exception ... "+ str(ex))
             response = {"success":False,"message":"exception.."}
             return Response (response, status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == 'PUT':
+    if request.method == 'PUT':
         try:
-            group_id = request.POST.get('group_id')
             group_name = request.POST.get('group_name')
             group_list = request.POST.get('group_list')
             group_list = json.loads(group_list)
@@ -834,14 +859,13 @@ def group(request,user_id):
             group.group_list = group_list
             group.save()
 
-            serializer = GroupSerializer(group)
             response = {"success":True,"message":"group updated"}
             return Response (response,status=status.HTTP_200_OK)
+        
         except Exception as ex:
             print("exception..." + str(ex))
-            response = {"success":False,"message":"error...."}
-            return Response (response, status =status.HTTP_400_OK)
-
+            response = {"success":False,"message":"error ...."}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
 @api_view(['GET','DELETE'])
 def tagMe(request,tagged_id):
     if request.method == 'GET':
