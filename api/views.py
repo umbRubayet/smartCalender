@@ -564,6 +564,14 @@ def taskStatusOperation(request,user_id,task_id):
                 task = Task.objects.get(user_id=user_id,id=task_id)
                 task.complete = complition
                 task.save()
+                
+                date = task.date
+                topTasks_dict = topTaskofDate(user_id,date)
+                monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
+                monthView_user[0].task_count = topTasks_dict['count']
+                monthView_user[0].tasks = topTasks_dict['tasks']
+                monthView_user[0].tag_flag = topTasks_dict['tag_flag']
+                monthView_user[0].save()
 
                 response = {"success":True, "message":"updated"}
                 return Response(response, status = status.HTTP_200_OK)
@@ -755,7 +763,7 @@ def weatherForecast(request, city):
                 response = {"success":False,"data":{},"message":"weather data service problem"}
                 return Response(response, status= status.HTTP_404_NOT_FOUND)
 
-@api_view(['POST'])
+@api_view(['GET'])
 def holiday(request,country):
     if request.method == 'POST':
         df = pd.read_csv("holiday.csv")
@@ -772,7 +780,22 @@ def holiday(request,country):
         print(serializer.data)
         response = {"success":True,"message": country+" holiday added", "data":serializer.data}
         return Response(response,status=status.HTTP_200_OK)
-
+    
+    if request.method == 'GET':
+        exists = Holiday.objects.filter(country=country).exists()
+        if exists:
+            try:
+                holiday = Holiday.objects.get(country=country)
+                serializer = HolidaySerializer(holiday)
+                response = {"success":True,"message":"holidays","data":serializer.data}
+                return Response(response,status=status.HTTP_200_OK)
+            except Exception as ex:
+                print("exception holiday get..."+ str(ex))
+                response = {"success":False,"message":"error..","data":[]}
+                return Response(response,status=status.HTTP_400_BAD_REQUEST)
+        else:
+            response = {"success":False,"message":"country's holiday data is not available"}
+            return Response(response,status=status.HTTP_404_NOT_FOUND)
 @api_view(['POST','GET'])
 def group(request,user_id):
     if request.method == 'POST':
