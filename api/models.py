@@ -89,3 +89,8 @@ class TagMe(models.Model):
     tagged_id = models.IntegerField(blank=False,default=None)
     tagger_id = models.IntegerField(blank=False,default=None)
     task_id = models.IntegerField(blank=False,default=None)
+
+class Note(models.Model):
+    user_id = models.IntegerField(blank=False,default = None)
+    title = models.CharField(max_length=255, blank=False, default="note")
+    description = models.TextField(blank=True, null=True, default=None)

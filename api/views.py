@@ -12,6 +12,7 @@ from .serializers import WeatherSerializer
 from .serializers import HolidaySerializer
 from .serializers import GroupSerializer
 from .serializers import TagMeSerializer
+from .serializers import NoteSerializer
 #serializers--------
 
 
@@ -26,6 +27,7 @@ from .models import Weather
 from .models import Holiday
 from .models import Group
 from .models import TagMe
+from .models import Note
 #models---------
 
 from rest_framework.response import Response
@@ -568,8 +570,8 @@ def taskStatusOperation(request,user_id,task_id):
                 response = {"success":False, "message":"error"}
                 return Response (response, status = status.HTTP_400_BAD_REQUEST)
         else:
-            response = {"success":True,"message":"task doesn't exist"} 
-            return Response (response,status = status.HTTP_200_OK)
+            response = {"success":False,"message":"task doesn't exist"}
+            return Response (response,status = status.HTTP_404_NOT_FOUND)
 
 @api_view(['POST'])
 def forgotPass(request):
@@ -873,3 +875,68 @@ def tagMe(request,tagged_id):
             print ("exception tag me ... "+ str(ex))
             response = {"success":False,"message":"error ...","data":[]}
             return Response (response, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET','POST'])
+def notePost(request, user_id):
+    if request.method == 'POST':
+        try:
+            title = request.POST.get('title')
+            description = request.POST.get('description')
+
+            note = Note.objects.create(title=title,description=description,user_id=user_id)
+            response = {"success":True,"message":"saved"}
+            return Response (response,status=status.HTTP_201_CREATED)
+        except Exception as ex:
+            print("exception.."+ str(ex))
+            response = {"success":False,"message":"save unsuccessfull"}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'GET':
+        try:
+            notes = Note.objects.filter(user_id=user_id)
+            serializer = NoteSerializer(notes,many=True)
+            response = {"success":True,"data":serializer.data,"message":"all notes"}
+            return Response(response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("exception.. "+ str(ex))
+            response = {"success":False,"data":[],"message":"error in get..."}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET','PUT','DELETE'])
+def noteOperations(request,user_id,note_id):
+    if request.method == 'GET':
+        try:
+            note = Note.objects.get(id=note_id)
+            serializer = NoteSerializer(note)
+            response = {"success":True,"message":"note","data":[serializer.data]}
+            return Response(response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("exception.. "+ str(ex))
+            response = {"success":False,"data":[],"message":"error in get..."}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'DELETE':
+        try:
+            note = Note.objects.get(id=note_id)
+            note.delete()
+            response = {"success":True,"message":"note deleted"}
+            return Response(response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("exception.. "+ str(ex))
+            response = {"success":False,"message":"error in deletion..."}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'PUT':
+        try:
+            title = request.POST.get('title')
+            description = request.POST.get('description')
+            note = Note.objects.get(id=note_id)
+            note.title = title
+            note.description = description
+            note.save()
+            response = {"success":True,"message":"note updated"}
+            return Response (response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("exception.. "+ str(ex))
+            response = {"success":False,"message":"error in update..."}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)

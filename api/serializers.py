@@ -11,6 +11,7 @@ from .models import Weather
 from .models import Holiday
 from .models import Group
 from .models import TagMe
+from .models import Note
 
 class UserSerializer(serializers.ModelSerializer):
 
@@ -75,3 +76,8 @@ class TagMeSerializer(serializers.ModelSerializer):
     class Meta:
         model = TagMe
         fields = ('id','tagged_id','tagger_id','task_id')
+
+class NoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Note
+        fields = ('id','user_id','title','description')
