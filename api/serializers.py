@@ -37,8 +37,8 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
 
         model = Task
-        fields = ('id','user_id','image','category','title','from_time','to_time','description','reminders','tagged','date','complete','tag_flag')
-    
+        fields = ('id','user_id','image','category','title','from_time','to_time','description','reminders','tagged','date','complete','tag_flag','group_tag')
+
     def get_reminders(self,obj):
         return obj.reminders
 class ProfileSerializer(serializers.ModelSerializer):
@@ -54,7 +54,7 @@ class TopTaskSerializer(serializers.ModelSerializer):
 class TaskSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = ('id','title','date','from_time','tag_flag')
+        fields = ('id','title','date','from_time','tag_flag','complete')
 
 class WeatherSerializer(serializers.ModelSerializer):
     class Meta:

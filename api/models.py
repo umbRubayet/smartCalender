@@ -51,6 +51,7 @@ class Task(models.Model):
     complete = models.BooleanField(default=False)
     tagged = JSONField(default=None, blank=True, null=True)
     tag_flag = models.BooleanField(default=False)
+    group_tag = JSONField(default=None,blank=True, null=True)
 
 def friend_list_default():
     return [{"id":""}]

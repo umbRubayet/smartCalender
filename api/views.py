@@ -95,12 +95,16 @@ def get_month_tasks(request, user_id):
         exists = MonthView.objects.filter(user_id = user_id).exists()
 
         if exists :
-            monthViewAllTasks = MonthView.objects.filter(user_id = user_id)
-            serializer = MonthViewSerializer(monthViewAllTasks, many=True)
-            response = {"success":"true", "data":serializer.data, "message":"all tasks"}
-            return Response(response, status = status.HTTP_200_OK)
+            try:
+                monthViewAllTasks = MonthView.objects.filter(user_id = user_id)
+                serializer = MonthViewSerializer(monthViewAllTasks, many=True)
+                response = {"success":True, "data":serializer.data, "message":"all tasks of month"}
+                return Response(response, status = status.HTTP_200_OK)
+            except Exception as ex:
+                reponse = {"success":False,"data":[],"message":"exception..."}
+                return Response (response , status = statu.HTTP_400_BAD_REQUEST)
         else :
-            response = {"success":"true","data":"", "message":"user doesn't have any task yet" }
+            response = {"success":True,"data":[], "message":"user doesn't have any task yet" }
             return Response (response , status = status.HTTP_200_OK)
 
         return Response (status = status.HTTP_400_BAD_REQUEST)
@@ -124,7 +128,8 @@ def task(request, user_id):
         tagged = json.loads(tagged)
         tag_flag = request.POST.get('tag_flag')
         tag_flag = json.loads(tag_flag)
-
+        group_tag = request.POST.get('group_tag')
+        group_tag_list = json.loads('group_tag')
 
         if not from_time:
             from_time=None
@@ -138,8 +143,11 @@ def task(request, user_id):
             tagged = None
         if not image:
             image = None
+        if not group_tag_list:
+            group_tag_list = None
+
         try:
-            task = Task.objects.create(date=date,image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,tagged=tagged,reminders=reminders, user_id=user_id,tag_flag=tag_flag)
+            task = Task.objects.create(date=date,image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,tagged=tagged,reminders=reminders, user_id=user_id,tag_flag=tag_flag,group_tag=group_tag_list)
             taskSerializer = TaskSerializer(task)
             response = {"success":True, "data":taskSerializer.data, "message":"new task added"}
 
@@ -158,6 +166,15 @@ def task(request, user_id):
                     tagged_id = json.loads(tagged_obj['userId'])
                     TagMe.objects.create(tagged_id=tagged_id,tagger_id=user_id,task_id=task.id)
 
+            if group_tag_list:
+                for group_id in group_tag_list:
+                    group_object = Group.objects.get(id=group_id)
+                    group_people_list = group_object.group_list
+
+                    for tagged_person in group_people_list:
+                        TagMe.objects.create(tagger_id=user_id,tagged_id=tagged_person,task_id=task.id)
+
+
             print("monthview")
             return Response(response, status = status.HTTP_201_CREATED)
 
@@ -171,6 +188,16 @@ def task(request, user_id):
         try:
             allTasks = Task.objects.filter(user_id=user_id)
             serializer = TaskSerializer(allTasks, many=True)
+            for data in serializer.data:
+                group_list = []
+                for group_id in data['group_tag']:
+                    group_info = {}
+                    group = Group.objects.get(id=group_id)
+                    group_info['name'] = group.group_name
+                    group_info['id'] = group.id
+                    group_list.append(group_info)
+
+                data['group'] = group_list
             response = {"success":True, "message":"all detailed tasks", "data":serializer.data}
             return Response (response, status= status.HTTP_200_OK)
         except Exception as ex:
@@ -208,6 +235,16 @@ def getTasksfromDate(request,user_id):
         try:
             allTasks = Task.objects.filter(user_id=user_id,date=date).order_by("from_time")
             serializer = TaskSerializer(allTasks, many=True)
+            for data in serializer.data:
+                group_list = []
+                for group_id in data['group_tag']:
+                    group_info = {}
+                    group = Group.objects.get(id=group_id)
+                    group_info['name'] = group.group_name
+                    group_info['id'] = group.id
+                    group_list.append(group_info)
+
+                data['group'] = group_list
             response = {"success":True,"message":"all tasks of date","data":serializer.data}
             return Response(response,status=status.HTTP_200_OK)
         except:
@@ -252,6 +289,8 @@ def editTask(request, task_id):
         tagged = json.loads(tagged)
         tag_flag = request.POST.get('tag_flag')
         tag_flag = json.loads(tag_flag)
+        group_tag = request.POST.get('group_tag')
+        group_tag_list = json.loads(group_tag)
 
         if not from_time:
             from_time=None
@@ -265,6 +304,8 @@ def editTask(request, task_id):
             tagged = None
         if not image:
             image = None
+        if not group_tag_list:
+            group_tag_list = None
 
         try:
             task = Task.objects.get(id=task_id)
@@ -277,6 +318,7 @@ def editTask(request, task_id):
             task.reminders = reminders
             task.tagged = tagged
             task.tag_flag = tag_flag
+            task.group_tag = group_tag_list
             task.save()
 
             user_id = task.user_id
