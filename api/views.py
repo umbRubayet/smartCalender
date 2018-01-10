@@ -190,14 +190,15 @@ def task(request, user_id):
             serializer = TaskSerializer(allTasks, many=True)
             for data in serializer.data:
                 group_list = []
-                for group_id in data['group_tag']:
-                    group_info = {}
-                    group = Group.objects.get(id=group_id)
-                    group_info['name'] = group.group_name
-                    group_info['id'] = group.id
-                    group_list.append(group_info)
+                if data['group_tag'] is not None:
+                    for group_id in data['group_tag']:
+                        group_info = {}
+                        group = Group.objects.get(id=group_id)
+                        group_info['name'] = group.group_name
+                        group_info['id'] = group.id
+                        group_list.append(group_info)
 
-                data['group'] = group_list
+                    data['group'] = group_list
             response = {"success":True, "message":"all detailed tasks", "data":serializer.data}
             return Response (response, status= status.HTTP_200_OK)
         except Exception as ex:
@@ -237,14 +238,15 @@ def getTasksfromDate(request,user_id):
             serializer = TaskSerializer(allTasks, many=True)
             for data in serializer.data:
                 group_list = []
-                for group_id in data['group_tag']:
-                    group_info = {}
-                    group = Group.objects.get(id=group_id)
-                    group_info['name'] = group.group_name
-                    group_info['id'] = group.id
-                    group_list.append(group_info)
+                if data['group_tag'] is not None:
+                    for group_id in data['group_tag']:
+                        group_info = {}
+                        group = Group.objects.get(id=group_id)
+                        group_info['name'] = group.group_name
+                        group_info['id'] = group.id
+                        group_list.append(group_info)
 
-                data['group'] = group_list
+                    data['group'] = group_list
             response = {"success":True,"message":"all tasks of date","data":serializer.data}
             return Response(response,status=status.HTTP_200_OK)
         except:
