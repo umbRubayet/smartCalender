@@ -72,6 +72,7 @@ class Weather(models.Model):
     atm = JSONField(default=None, blank=False, null=True)
     astronomy = JSONField(default = None, blank=False, null=True)
     forecast = JSONField(default = None, blank=False, null=True)
+    current = models.CharField(max_length=255,default=None,blank=True,null=True)
 
 class Holiday(models.Model):
     country = models.CharField(max_length=255, default=None, blank=False, null=True)

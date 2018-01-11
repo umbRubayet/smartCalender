@@ -703,12 +703,14 @@ def weatherForecast(request, city):
 
         headers = {'X-Mashape-Key':'7VMha4L2otmshWK1NdInqJP6ZT3fp1WBxYGjsnV3MfkFVH8lYW'}
         url = 'https://simple-weather.p.mashape.com/weatherdata?lat='+str(lat)+'&lng='+str(lan)
-
+        url_current = 'https://simple-weather.p.mashape.com/weather?lat='+str(lat)+'&lng='+str(lan)
         if exists:
             data = Weather.objects.get(city=city)
             last_update = data.last_update
             if timezone.now() >  last_update:
                 response = requests.get(url, headers=headers)
+                response_current = requests.get(url_current, headers=headers)
+
                 if response.status_code == 200:
                     try:
                         response_data = json.loads(response.text)
@@ -716,11 +718,13 @@ def weatherForecast(request, city):
                         atm = base_object['atmosphere']
                         astronomy = base_object['astronomy']
                         forecast = base_object['item']['forecast']
+                        current = response_current.text
 
                         data.atm = atm
                         data.astronomy = astronomy
                         data.forecast = forecast
                         data.last_update = timezone.now() + timedelta(hours=6)
+                        data.current = current
                         data.save()
 
                         serializer = WeatherSerializer(data)
@@ -741,6 +745,8 @@ def weatherForecast(request, city):
                 return Response(response,status=status.HTTP_200_OK)
         else:
             response = requests.get(url, headers=headers)
+            response_current = requests.get(url_current, headers=headers)
+
             if response.status_code == 200:
                 try:
                     response_data = json.loads(response.text)
@@ -751,7 +757,8 @@ def weatherForecast(request, city):
                     country = base_object['location']['country']
                     city = base_object['location']['city']
                     last_update = timezone.now() + timedelta(hours=6)
-                    weather = Weather.objects.create(last_update=last_update,country=country,city=city,atm=atm,astronomy=astronomy,forecast=forecast)
+                    current = response_current.text
+                    weather = Weather.objects.create(current=current,last_update=last_update,country=country,city=city,atm=atm,astronomy=astronomy,forecast=forecast)
                     serializer = WeatherSerializer(weather)
                     response = {"success":True,"data":serializer.data,"message":"weather data"}
                     return Response(response,status=status.HTTP_200_OK)

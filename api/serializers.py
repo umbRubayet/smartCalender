@@ -60,7 +60,7 @@ class TaskSearchSerializer(serializers.ModelSerializer):
 class WeatherSerializer(serializers.ModelSerializer):
     class Meta:
         model = Weather
-        fields = ('city','atm','astronomy','forecast')
+        fields = ('city','atm','astronomy','forecast','current')
 
 class HolidaySerializer(serializers.ModelSerializer):
     class Meta:
