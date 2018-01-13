@@ -45,50 +45,57 @@ import requests
 
 import csv
 import pandas as pd
+import threading
 # Create your views here.
 
 @api_view (['POST'])
 def user_list(request):
 
     if request.method =='POST':
-
-        mail = request.POST.get('mail')
-        password = request.POST.get('password')
-        exists = User.objects.filter(mail=mail).exists()
-        if exists:
-            response = {"success":False,"data":{},"message":"already exists"}
-            return Response(response,status=status.HTTP_200_OK)
-        else:
-            new_user = User.objects.create(mail=mail,password=password,image=None,name=None,phoneNumber=None)
-            serializer = UserSerializer(new_user)
-            response = {"success":True,"data": serializer.data,"message":"Successfully signed up"}
-            return Response(response,status=status.HTTP_201_CREATED)
-        response = {"success":False,"data":{}, "message":"bad request"}
-        return Response(response , status=status.HTTP_400_BAD_REQUEST)
+        try:
+            mail = request.POST.get('mail')
+            password = request.POST.get('password')
+            exists = User.objects.filter(mail=mail).exists()
+            if exists:
+                response = {"success":False,"data":{},"message":"already exists"}
+                return Response(response,status=status.HTTP_200_OK)
+            else:
+                new_user = User.objects.create(mail=mail,password=password,image=None,name=None,phoneNumber=None)
+                serializer = UserSerializer(new_user)
+                response = {"success":True,"data": serializer.data,"message":"Successfully signed up"}
+                return Response(response,status=status.HTTP_201_CREATED)
+        except Exception as ex:
+            print("exception signup... "+ str(ex))
+            response = {"success":False,"data":{}, "message":"bad request"}
+            return Response(response , status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
 def login(request):
 
     if request.method == 'POST':
-        requested_mail = request.POST.get('mail')
-        requested_password = request.POST.get('password')
-        exists = User.objects.filter(mail = requested_mail).exists()
+        try:
+            requested_mail = request.POST.get('mail')
+            requested_password = request.POST.get('password')
+            exists = User.objects.filter(mail = requested_mail).exists()
 
-        if exists :
-            user = User.objects.get(mail=requested_mail)
-            serializer = UserSerializer(user)
-            if requested_password ==  user.password :
-                response = {"success":True,"data":serializer.data,"message":"logged in"}
-                return Response(response,status=status.HTTP_200_OK)
+            if exists :
+                user = User.objects.get(mail=requested_mail)
+                serializer = UserSerializer(user)
+                if requested_password ==  user.password :
+                    response = {"success":True,"data":serializer.data,"message":"logged in"}
+                    return Response(response,status=status.HTTP_200_OK)
+                else:
+                    response = {"success":False,"message":"password didn't match"}
+                    return Response(response, status = status.HTTP_200_OK)
+
             else:
-                response = {"success":False,"message":"password didn't match"}
-                return Response(response, status = status.HTTP_200_OK)
-
-        else:
-            response = {"success":False,"message":"user doesn't exist"}
-            return Response(response, status=status.HTTP_404_NOT_FOUND)
-
+                response = {"success":False,"message":"user doesn't exist"}
+                return Response(response, status=status.HTTP_404_NOT_FOUND)
+        except Exception as ex:
+            print("exception login... "+ str(ex))
+            response = {"success":False,"data":{}, "message":"bad request"}
+            return Response(response , status=status.HTTP_400_BAD_REQUEST)
 
 @api_view (['GET'])
 def get_month_tasks(request, user_id):
@@ -103,78 +110,95 @@ def get_month_tasks(request, user_id):
                 response = {"success":True, "data":serializer.data, "message":"all tasks of month"}
                 return Response(response, status = status.HTTP_200_OK)
             except Exception as ex:
+                print("exception in month tasks... " + str(ex))
                 reponse = {"success":False,"data":[],"message":"exception..."}
                 return Response (response , status = statu.HTTP_400_BAD_REQUEST)
         else :
             response = {"success":True,"data":[], "message":"user doesn't have any task yet" }
             return Response (response , status = status.HTTP_200_OK)
 
-        return Response (status = status.HTTP_400_BAD_REQUEST)
 
+def topTaskUpdateMonthView(user_id,date):
+    topTask_dict = {}
+    topTasks_dict = topTaskofDate(user_id,date)
+    monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
+    monthView_user[0].task_count = topTasks_dict['count']
+    monthView_user[0].tasks = topTasks_dict['tasks']
+    monthView_user[0].tag_flag = topTasks_dict['tag_flag']
+    monthView_user[0].save()
+
+def personTag(tagged,user_id,task_id):
+    try:
+        for tagged_obj in tagged:
+            tagged_id = json.loads(tagged_obj['userId'])
+            TagMe.objects.create(tagged_id=tagged_id,tagger_id=user_id,task_id=task_id)
+    except Exception as ex:
+        print ("person tag exception..." + str(ex))
+
+def groupTag(group_tag_list, user_id, task_id):
+    try:
+        for group_id in group_tag_list:
+            group_object = Group.objects.get(id=group_id)
+            group_people_list = group_object.group_list
+
+            for tagged_person in group_people_list:
+                TagMe.objects.create(tagger_id=user_id,tagged_id=tagged_person,task_id=task_id)
+
+    except Exception as ex:
+        print("group tag exception..." + str(ex))
 
 @api_view(['POST','GET'])
 def task(request, user_id):
 
     if request.method == 'POST':
-
-        date = request.POST.get('date')
-        image = request.data['file']
-        category = request.POST.get('category')
-        title = request.POST.get('title')
-        from_time = request.POST.get('from_time')
-        to_time = request.POST.get('to_time')
-        description = request.POST.get('description')
-        reminders = request.POST.get('reminders')
-        reminders = json.loads(reminders)
-        tagged = request.POST.get('tagged')
-        tagged = json.loads(tagged)
-        tag_flag = request.POST.get('tag_flag')
-        tag_flag = json.loads(tag_flag)
-        group_tag = request.POST.get('group_tag')
-        group_tag_list = json.loads('group_tag')
-
-        if not from_time:
-            from_time=None
-        if not to_time:
-            to_time=None
-        if not description:
-            description = None
-        if not reminders:
-            reminders = None
-        if not tagged:
-            tagged = None
-        if not image:
-            image = None
-        if not group_tag_list:
-            group_tag_list = None
-
         try:
+            date = request.POST.get('date')
+            image = request.data['file']
+            category = request.POST.get('category')
+            title = request.POST.get('title')
+            from_time = request.POST.get('from_time')
+            to_time = request.POST.get('to_time')
+            description = request.POST.get('description')
+            reminders = request.POST.get('reminders')
+            reminders = json.loads(reminders)
+            tagged = request.POST.get('tagged')
+            tagged = json.loads(tagged)
+            tag_flag = request.POST.get('tag_flag')
+            tag_flag = json.loads(tag_flag)
+            group_tag = request.POST.get('group_tag')
+            group_tag_list = json.loads(group_tag)
+
+            if not from_time:
+                from_time=None
+            if not to_time:
+                to_time=None
+            if not description:
+                description = None
+            if not reminders:
+                reminders = None
+            if not tagged:
+                tagged = None
+            if not image:
+                image = None
+            if not group_tag_list:
+                group_tag_list = None
+
             task = Task.objects.create(date=date,image=image,category=category,title=title,from_time=from_time,to_time=to_time,description = description,tagged=tagged,reminders=reminders, user_id=user_id,tag_flag=tag_flag,group_tag=group_tag_list)
             taskSerializer = TaskSerializer(task)
             response = {"success":True, "data":taskSerializer.data, "message":"new task added"}
 
             """post task to month view to update internally """
 
-            topTasks_dict = topTaskofDate(user_id,date)
-
-            monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
-            monthView_user[0].task_count = topTasks_dict['count']
-            monthView_user[0].tasks = topTasks_dict['tasks']
-            monthView_user[0].tag_flag = topTasks_dict['tag_flag']
-            monthView_user[0].save()
+            t = threading.Thread(target=topTaskUpdateMonthView, args=(user_id,date))
+            t.start()
 
             if tagged:
-                for tagged_obj in tagged:
-                    tagged_id = json.loads(tagged_obj['userId'])
-                    TagMe.objects.create(tagged_id=tagged_id,tagger_id=user_id,task_id=task.id)
+                t1 = threading.Thread(target=personTag, args=(tagged,user_id,task.id))
+                t1.start()
 
             if group_tag_list:
-                for group_id in group_tag_list:
-                    group_object = Group.objects.get(id=group_id)
-                    group_people_list = group_object.group_list
-
-                    for tagged_person in group_people_list:
-                        TagMe.objects.create(tagger_id=user_id,tagged_id=tagged_person,task_id=task.id)
+                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id))
+                t2.start()
 
 
             print("monthview")
@@ -262,17 +286,18 @@ def editTask(request, task_id):
             task = Task.objects.get(id=task_id)
             date = task.date
             user_id = task.user_id
+            task_id = task.id
             task.delete()
+
             response = {"success":True,"message":"deleted"}
+            
+            tags_with_task = TagMe.objects.filter(task_id=task_id)
+            tags_with_task.delete()
 
             """ MonthView Update """
-            topTasks_dict = topTaskofDate(user_id,date)
+            t = threading.Thread(target=topTaskUpdateMonthView, args=(user_id,date))
+            t.start()
 
-            monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
-            monthView_user[0].task_count = topTasks_dict['count']
-            monthView_user[0].tasks = topTasks_dict['tasks']
-            monthView_user[0].tag_flag = topTasks_dict['tag_flag']
-            monthView_user[0].save()
             """ """
             return Response (response, status=status.HTTP_200_OK)
         except:
@@ -333,13 +358,22 @@ def editTask(request, task_id):
             print("response")
             """post task to month view to update internally """
 
-            topTasks_dict = topTaskofDate(user_id,date)
             print("top task")
-            monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
-            monthView_user[0].task_count = topTasks_dict['count']
-            monthView_user[0].tasks = topTasks_dict['tasks']
-            monthView_user[0].tag_flag = topTasks_dict['tag_flag']
-            monthView_user[0].save()
+
+            tags_with_task = TagMe.objects.filter(task_id=task_id)
+            tags_with_task.delete()
+
+            t = threading.Thread(target=topTaskUpdateMonthView, args=(user_id,date))
+            t.start()
+
+            if tagged:
+                t1 = threading.Thread(target=personTag, args=(tagged,user_id,task.id))
+                t1.start()
+
+            if group_tag_list:
+                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id))
+                t2.start()
+
             print("monthview sAVE")
             return Response (response,status = status.HTTP_200_OK)
         except:
@@ -564,14 +598,11 @@ def taskStatusOperation(request,user_id,task_id):
                 task = Task.objects.get(user_id=user_id,id=task_id)
                 task.complete = complition
                 task.save()
-                
+
                 date = task.date
-                topTasks_dict = topTaskofDate(user_id,date)
-                monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
-                monthView_user[0].task_count = topTasks_dict['count']
-                monthView_user[0].tasks = topTasks_dict['tasks']
-                monthView_user[0].tag_flag = topTasks_dict['tag_flag']
-                monthView_user[0].save()
+
+                t = threading.Thread(target=topTaskUpdateMonthView, args=(user_id,date))
+                t.start()
 
                 response = {"success":True, "message":"updated"}
                 return Response(response, status = status.HTTP_200_OK)
@@ -668,18 +699,13 @@ def syncTask(request,user_id):
                 tagged = []
                 tag_flag = False
                 reminders = []
-
+                group_tag = None
                 print("date .. "+str(date))
                 try :
-                    task = Task.objects.create(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders)
+                    task = Task.objects.create(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders,group_tag=group_tag)
 
-                    topTask_dict = {}
-                    topTasks_dict = topTaskofDate(user_id,date)
-                    monthView_user = MonthView.objects.get_or_create(user_id=user_id,date=date)
-                    monthView_user[0].task_count = topTasks_dict['count']
-                    monthView_user[0].tasks = topTasks_dict['tasks']
-                    monthView_user[0].tag_flag = topTasks_dict['tag_flag']
-                    monthView_user[0].save()
+                    t = threading.Thread(target=topTaskUpdateMonthView, args=(user_id,date))
+                    t.start()
 
                 except Exception as exc:
                     print("eception.... "+str(exc))
@@ -787,8 +813,12 @@ def holiday(request,country):
         print(serializer.data)
         response = {"success":True,"message": country+" holiday added", "data":serializer.data}
         return Response(response,status=status.HTTP_200_OK)
-    
+
     if request.method == 'GET':
+
+        #if "_" in country:
+            #country.replace("_"," ")
+
         exists = Holiday.objects.filter(country=country).exists()
         if exists:
             try:
@@ -803,6 +833,7 @@ def holiday(request,country):
         else:
             response = {"success":False,"message":"country's holiday data is not available"}
             return Response(response,status=status.HTTP_404_NOT_FOUND)
+
 @api_view(['POST','GET'])
 def group(request,user_id):
     if request.method == 'POST':
@@ -891,11 +922,12 @@ def singleGroup(request,user_id,group_id):
 
             response = {"success":True,"message":"group updated"}
             return Response (response,status=status.HTTP_200_OK)
-        
+
         except Exception as ex:
             print("exception..." + str(ex))
             response = {"success":False,"message":"error ...."}
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
 @api_view(['GET','DELETE'])
 def tagMe(request,tagged_id):
     if request.method == 'GET':

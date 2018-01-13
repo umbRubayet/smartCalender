@@ -26,7 +26,7 @@ urlpatterns = [
     url(r'^forecast/(?P<city>\w+)/$',views.weatherForecast),
     url(r'^holiday/(?P<country>\w+)/$',views.holiday),
     url(r'^group/(?P<user_id>\d+)/$',views.group),
-    url(r'^group/(?P<user_id>\d+)/(?P<group_id>\d+)$',views.singleGroup),
+    url(r'^singlegroup/(?P<user_id>\d+)/(?P<group_id>\d+)/$',views.singleGroup),
     url(r'^tagme/(?P<tagged_id>\d+)/$',views.tagMe),
     url(r'^writenote/(?P<user_id>\d+)/$',views.notePost),
     url(r'^noteoperation/(?P<user_id>\d+)/(?P<note_id>\d+)$',views.noteOperations),
