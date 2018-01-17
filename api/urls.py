@@ -16,7 +16,7 @@ urlpatterns = [
     url(r'^searchTask/(?P<user_id>\d+)/(?P<text>\w+)/$', views.search),
     url(r'^taskOnDate/(?P<user_id>\d+)/$', views.getTasksfromDate),
     url(r'^editTask/(?P<task_id>\d+)/$',views.editTask),
-    url(r'^profile/(?P<mail>[\w.%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})/$', views.profile),
+    url(r'^profile/(?P<user_id>\d+)/$', views.profile),
     url(r'^findFriend/(?P<user_id>\d+)/(?P<key>.+)/$',views.findFriend),
     url(r'^friend/(?P<user_id>\d+)/$',views.friend),
     url(r'^taskStatus/(?P<user_id>\d+)/(?P<task_id>\d+)/$',views.taskStatusOperation),

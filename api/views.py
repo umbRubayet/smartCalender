@@ -55,12 +55,13 @@ def user_list(request):
         try:
             mail = request.POST.get('mail')
             password = request.POST.get('password')
+            name = request.POST.get('name')
             exists = User.objects.filter(mail=mail).exists()
             if exists:
                 response = {"success":False,"data":{},"message":"already exists"}
                 return Response(response,status=status.HTTP_200_OK)
             else:
-                new_user = User.objects.create(mail=mail,password=password,image=None,name=None,phoneNumber=None)
+                new_user = User.objects.create(mail=mail,password=password,image=None,name=name,phoneNumber=None)
                 serializer = UserSerializer(new_user)
                 response = {"success":True,"data": serializer.data,"message":"Successfully signed up"}
                 return Response(response,status=status.HTTP_201_CREATED)
@@ -407,31 +408,46 @@ def search(request, user_id , text):
             return Response (response, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET','PUT'])
-def profile(request, mail):
+def profile(request, user_id):
 
     if request.method=='PUT':
-        user = User.objects.get(mail=mail)
+        user = User.objects.get(id=user_id)
         name=False
         phoneNumber=False
-        image=False
+        #image=False
         password = False
+        rm = request.POST.get('rm')
+        rm = json.loads(rm)
         try:
-            image = request.data['file']
-            user.image=image
-        except:
-            user.image=None
+            if rm:
+                user.image=None
+            if not rm:
+                try: 
+                    user.image  = request.data['file']
+            #user.image=image
+                except Exception as ex:
+                    print(str(ex))
+        except Exception as ex:
+            print("file + " + str(ex))
+            #user.image=None
         try:
-            name = request.data['name']
+            name = request.POST.get('name')
             user.name=name
-        except:
+            print("name "+ name)
+        except Exception as ex:
+            print("name " + name)
+            print(str(ex))
             user.name=None
         try:
-            phoneNumber = request.data['phoneNumber']
-        except:
+            phoneNumber = request.POST.get('phoneNumber')
+            print(phoneNumber)
+        except Exception as ex:
+            print(str(ex))
             pass
         try:
-            password = request.data['password']
-        except:
+            password = request.POST.get('password')
+        except Exception as ex:
+            print(str(ex))
             pass
         if phoneNumber:
             user.phoneNumber = phoneNumber
@@ -448,9 +464,9 @@ def profile(request, mail):
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'GET':
-        exists = User.objects.filter(mail=mail).exists()
+        exists = User.objects.filter(id=user_id).exists()
         if exists:
-            user = User.objects.get(mail=mail)
+            user = User.objects.get(id=user_id)
             try:
                 userSerializer = UserSerializer(user)
                 response = {"success":True,"message":"user found","data":userSerializer.data}
@@ -781,7 +797,8 @@ def weatherForecast(request, city):
                     astronomy = base_object['astronomy']
                     forecast = base_object['item']['forecast']
                     country = base_object['location']['country']
-                    city = base_object['location']['city']
+                    #city = base_object['location']['city']
+                    city = city
                     last_update = timezone.now() + timedelta(hours=6)
                     current = response_current.text
                     weather = Weather.objects.create(current=current,last_update=last_update,country=country,city=city,atm=atm,astronomy=astronomy,forecast=forecast)
