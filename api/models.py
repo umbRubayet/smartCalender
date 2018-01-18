@@ -34,13 +34,14 @@ class MonthView(models.Model):
     tasks = JSONField(blank=True,null=True,default=None)
     task_count = models.IntegerField(blank=True,null=True,default=None)
     tag_flag = models.BooleanField(default=False)
+    all_done = models.BooleanField(default=False)
 
 def reminder_default():
     return {"time":""}
 
 class Task(models.Model):
     date = models.DateField(blank=False, default = datetime.today)
-    image = models.ImageField(upload_to='Image/', default=None, blank=True, null=True)
+    image = models.CharField(max_length=255, blank=False, default=None)
     category = models.CharField(max_length=255, blank=False, default="event")
     title = models.CharField(max_length=255, blank=False, default="task")
     from_time = models.TimeField(blank=True, null=True,default=None)
@@ -64,7 +65,7 @@ class ForgotPass(models.Model):
     mail = models.CharField(max_length=255, blank=False,unique=True)
     token = models.CharField(max_length=20,default=None, blank=True,null=True)
     dateTime = models.DateTimeField(default= timezone.now()- timedelta(seconds=1),blank=True)
-   
+
 class Weather(models.Model):
     country = models.CharField(max_length=255, default = None, blank=False, null=True)
     city = models.CharField(max_length=255, default = None, blank=False, null=True)

@@ -30,7 +30,7 @@ class MonthViewSerializer(serializers.ModelSerializer) :
 
     class Meta:
         model = MonthView
-        fields = ('id','user_id', 'date', 'tasks','task_count','tag_flag')
+        fields = ('id','user_id', 'date', 'tasks','task_count','tag_flag','all_done')
 
 class TaskSerializer(serializers.ModelSerializer):
     reminders = serializers.SerializerMethodField()

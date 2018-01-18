@@ -126,13 +126,13 @@ def topTaskUpdateMonthView(user_id,date):
     monthView_user[0].task_count = topTasks_dict['count']
     monthView_user[0].tasks = topTasks_dict['tasks']
     monthView_user[0].tag_flag = topTasks_dict['tag_flag']
+    monthView_user[0].all_done = topTasks_dict['all_done']
     monthView_user[0].save()
 
 def personTag(tagged,user_id,task_id):
     try:
-        for tagged_obj in tagged:
-            tagged_id = json.loads(tagged_obj['userId'])
-            TagMe.objects.create(tagged_id=tagged_id,tagger_id=user_id,task_id=task_id)
+        for tagged_user_id in tagged:
+            TagMe.objects.create(tagged_id=tagged_user_id,tagger_id=user_id,task_id=task_id)
     except Exception as ex:
         print ("person tag exception..." + str(ex))
 
@@ -154,7 +154,7 @@ def task(request, user_id):
     if request.method == 'POST':
         try:
             date = request.POST.get('date')
-            image = request.data['file']
+            image = request.POST.get('image_id') 
             category = request.POST.get('category')
             title = request.POST.get('title')
             from_time = request.POST.get('from_time')
@@ -234,6 +234,15 @@ def task(request, user_id):
 
 def topTaskofDate(user_id,date):
     try:
+        all_done_flag = False
+        all_tasks_on_date = Task.objects.filter(user_id=user_id, date=date)
+        all_done_tasks = all_tasks_on_date.filter(complete=True)
+        total_count = all_tasks_on_date.count()
+        done_count = all_done_tasks.count()
+
+        if total_count > 0:
+            if total_count == done_count:
+                all_done_flag = True
 
         allTasks = Task.objects.filter(user_id=user_id, date=date, complete=False).order_by("from_time")
         taskCount = allTasks.count()
@@ -249,6 +258,7 @@ def topTaskofDate(user_id,date):
         result['count'] = taskCount
         result['tasks'] = topTaskSerializer.data[:]
         result['tag_flag'] = tag_flag
+        result['all_done'] = all_done_flag
         return result
     except:
         print("topTaskof date exception")
@@ -265,6 +275,7 @@ def getTasksfromDate(request,user_id):
             serializer = TaskSerializer(allTasks, many=True)
             for data in serializer.data:
                 group_list = []
+                person_list = []
                 if data['group_tag'] is not None:
                     for group_id in data['group_tag']:
                         group_info = {}
@@ -274,9 +285,23 @@ def getTasksfromDate(request,user_id):
                         group_list.append(group_info)
 
                     data['group'] = group_list
+                else:
+                    data['group']=[]
+
+                if data['tagged'] is not None:
+                    tagged_users = User.objects.filter(id__in=data['tagged'])
+                    tagged_serializer = ProfileSerializer(tagged_users,many=True)
+                    person_list = tagged_serializer.data
+                    data['tagged_persons'] = person_list
+
+                else:
+                    data['tagged_persons'] = []
+                del data['group_tag']
+                del data['tagged']
             response = {"success":True,"message":"all tasks of date","data":serializer.data}
             return Response(response,status=status.HTTP_200_OK)
-        except:
+        except Exception as ex:
+            print(str(ex))
             response = {"success":False,"message":"error occured", "data":[]}
             return Response(response, status=status.HTTP_400_BAD_REQUEST) 
 
@@ -291,7 +316,7 @@ def editTask(request, task_id):
             task.delete()
 
             response = {"success":True,"message":"deleted"}
-            
+
             tags_with_task = TagMe.objects.filter(task_id=task_id)
             tags_with_task.delete()
 
@@ -311,7 +336,7 @@ def editTask(request, task_id):
         title = request.POST.get('title')
         from_time = request.POST.get('from_time')
         to_time = request.POST.get('to_time')
-        image = request.data['file']
+        image = request.POST.get('imageId')
         description = request.POST.get('description')
         reminders = request.POST.get('reminders')
         reminders = json.loads(reminders)
@@ -349,6 +374,7 @@ def editTask(request, task_id):
             task.tagged = tagged
             task.tag_flag = tag_flag
             task.group_tag = group_tag_list
+            task.image = image
             task.save()
 
             user_id = task.user_id
@@ -385,6 +411,30 @@ def editTask(request, task_id):
         try:
             task = Task.objects.get(id=task_id)
             serializer = TaskSerializer(task)
+            group_list = []
+            person_list = []
+            if serializer['group_tag'] is not None:
+                for group_id in data['group_tag']:
+                    group_info = {}
+                    group = Group.objects.get(id=group_id)
+                    group_info['name'] = group.group_name
+                    group_info['id'] = group.id
+                    group_list.append(group_info)
+
+                data['group'] = group_list
+            else:
+                data['group']=[]
+
+            if data['tagged'] is not None:
+                tagged_users = User.objects.filter(id__in=data['tagged'])
+                tagged_serializer = ProfileSerializer(tagged_users,many=True)
+                person_list = tagged_serializer.data
+                data['tagged_persons'] = person_list
+            else:
+                data['tagged_persons'] = []
+
+            del data['tagged']
+            del data['group_tag']
             response = {"success":True,"message":"task","data":[serializer.data]}
             return Response(response,status=status.HTTP_200_OK)
         except:
@@ -397,7 +447,7 @@ def search(request, user_id , text):
 
     if request.method == 'GET':
         try:
-            tasks = Task.objects.filter(user_id=user_id, title__icontains=text).order_by("from_time")
+            tasks = Task.objects.filter(user_id=user_id, title__icontains=text).order_by("date","from_time")
             serializer = TaskSearchSerializer(tasks, many=True)
 
             response = {"data":serializer.data}
@@ -422,7 +472,7 @@ def profile(request, user_id):
             if rm:
                 user.image=None
             if not rm:
-                try: 
+                try:
                     user.image  = request.data['file']
             #user.image=image
                 except Exception as ex:
