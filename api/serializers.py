@@ -81,3 +81,8 @@ class NoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Note
         fields = ('id','user_id','title','description')
+
+class TaskTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ('id','date','category','title','from_time')

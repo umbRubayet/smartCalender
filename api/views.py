@@ -336,7 +336,7 @@ def editTask(request, task_id):
         title = request.POST.get('title')
         from_time = request.POST.get('from_time')
         to_time = request.POST.get('to_time')
-        image = request.POST.get('imageId')
+        image = request.POST.get('image_id')
         description = request.POST.get('description')
         reminders = request.POST.get('reminders')
         reminders = json.loads(reminders)
@@ -1093,3 +1093,25 @@ def noteOperations(request,user_id,note_id):
             print("exception.. "+ str(ex))
             response = {"success":False,"message":"error in update..."}
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT'])
+def changePassword(request,user_id):
+    if request.method == 'PUT':
+        try:
+            user = User.objects.get(id=user_id)
+            password = user.password
+            old_password = request.POST.get('old_password')
+            new_password = request.POST.get('new_password') 
+            if password == old_password:
+                user.password = new_password
+                user.save()
+                response = {"success":True,"message":"changed successfully"}
+                return Response(response,status=status.HTTP_200_OK)
+            else:
+                response = {"success":False,"message":"password didn't match"}
+                return Response(response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print(str(ex))
+            response={"success":False,"message":"couldn't update"}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
+

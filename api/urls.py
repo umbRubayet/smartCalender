@@ -30,6 +30,7 @@ urlpatterns = [
     url(r'^tagme/(?P<tagged_id>\d+)/$',views.tagMe),
     url(r'^writenote/(?P<user_id>\d+)/$',views.notePost),
     url(r'^noteoperation/(?P<user_id>\d+)/(?P<note_id>\d+)$',views.noteOperations),
+    url(r'^changepassword/(?P<user_id>\d+)/$',views.changePassword),
     #url(r'^fcm/', include('fcm.urls')),
 ] + static(settings.MEDIA_URL, document_root= settings.MEDIA_ROOT)
 
