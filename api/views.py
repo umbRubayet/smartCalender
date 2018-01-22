@@ -13,6 +13,8 @@ from .serializers import HolidaySerializer
 from .serializers import GroupSerializer
 from .serializers import TagMeSerializer
 from .serializers import NoteSerializer
+from .serializers import TaskTagSerializer
+from .serializers import GroupTagSerializer
 #serializers--------
 
 
@@ -46,6 +48,7 @@ import requests
 import csv
 import pandas as pd
 import threading
+import sys
 # Create your views here.
 
 @api_view (['POST'])
@@ -129,10 +132,10 @@ def topTaskUpdateMonthView(user_id,date):
     monthView_user[0].all_done = topTasks_dict['all_done']
     monthView_user[0].save()
 
-def personTag(tagged,user_id,task_id):
+def personTag(tagged,user_id,task_id, date):
     try:
         for tagged_user_id in tagged:
-            TagMe.objects.create(tagged_id=tagged_user_id,tagger_id=user_id,task_id=task_id)
+            TagMe.objects.create(tagged_id=tagged_user_id,tagger_id=user_id,task_id=task_id,date=date)
     except Exception as ex:
         print ("person tag exception..." + str(ex))
 
@@ -143,7 +146,7 @@ def groupTag(group_tag_list, user_id, task_id):
             group_people_list = group_object.group_list
 
             for tagged_person in group_people_list:
-                TagMe.objects.create(tagger_id=user_id,tagged_id=tagged_person,task_id=task_id)
+                TagMe.objects.create(tagger_id=user_id,tagged_id=tagged_person,task_id=task_id,date=date)
 
     except Exception as ex:
         print("group tag exception..." + str(ex))
@@ -194,11 +197,11 @@ def task(request, user_id):
             t.start()
 
             if tagged:
-                t1 = threading.Thread(target=personTag, args=(tagged,user_id,task.id))
+                t1 = threading.Thread(target=personTag, args=(tagged,user_id,task.id,date))
                 t1.start()
 
             if group_tag_list:
-                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id))
+                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id, date))
                 t2.start()
 
 
@@ -994,22 +997,54 @@ def singleGroup(request,user_id,group_id):
             print("exception..." + str(ex))
             response = {"success":False,"message":"error ...."}
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
+import traceback
 
 @api_view(['GET','DELETE'])
-def tagMe(request,tagged_id):
+def tag(request,tagged_id):
     if request.method == 'GET':
         try:
             tags = TagMe.objects.filter(tagged_id=tagged_id)
             serializer = TagMeSerializer(tags,many=True)
+            tag_hoichi_list = []
             for tag in serializer.data:
+                tag_dict ={}
                 tagger = User.objects.get(id=tag['tagger_id'])
                 tagger_serializer = ProfileSerializer(tagger)
-                tag['tagger'] = tagger_serializer.data
+                tag_dict['tag_korche'] = [tagger_serializer.data]
                 task  = Task.objects.get(id=tag['task_id'])
-                task_serializer = TaskSerializer(task)
-                tag['task'] = task_serializer.data
+                task_tag_serializer = TaskTagSerializer(task)
+                tag_dict['task'] = task_tag_serializer.data
+                tag_hoichi_list.append(tag_dict)
+            serializer.tag_hoichi = tag_hoichi_list
 
-            response = {"success":True,"message":"tagged tasks","data":serializer.data}
+            diff_tasks = TagMe.objects.filter(tagger_id=tagged_id).distinct('task_id')
+            serializer_k = TagMeSerializer(diff_tasks,many=True)
+            tag_korchi_list = []
+
+            for tag in serializer_k.data:
+                try:
+                    tag_dict = {}
+                    task = Task.objects.get(id=tag['task_id'])
+                    people_tag = task.tagged
+                    group_tag = task.group_tag
+
+                    tagged_users = User.objects.filter(id__in=people_tag)
+                    tagged_serializer = ProfileSerializer(tagged_users,many=True)
+
+                    tag_dict['people_tag_korchi'] = tagged_serializer.data
+
+                    groups = Group.objects.filter(id__in=group_tag)
+                    groups_serializer = GroupTagSerializer(groups,many=True)
+                    tag_dict['group_tag_korchi'] = groups_serializer.data
+
+                    task_tag_serializer = TaskTagSerializer(task)
+                    tag_dict['task'] = task_tag_serializer.data
+                    tag_korchi_list.append(tag_dict)
+                except Exception as ex:
+                    print(str(ex))
+            serializer_k.tag_korchi = tag_korchi_list
+
+            response = {"success":True,"message":"tagged tasks","data":serializer.data,"tag_hoichi":serializer.tag_hoichi,"tag_korchi":serializer_k.tag_korchi}
             return Response (response, status=status.HTTP_200_OK)
         except Exception as ex:
             print("exception..." + str(ex))

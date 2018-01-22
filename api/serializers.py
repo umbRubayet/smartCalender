@@ -86,3 +86,8 @@ class TaskTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = ('id','date','category','title','from_time')
+
+class GroupTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ('id','group_name')

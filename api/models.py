@@ -91,6 +91,7 @@ class TagMe(models.Model):
     tagged_id = models.IntegerField(blank=False,default=None)
     tagger_id = models.IntegerField(blank=False,default=None)
     task_id = models.IntegerField(blank=False,default=None)
+    date = models.DateField(blank=False, default = datetime.today) 
 
 class Note(models.Model):
     user_id = models.IntegerField(blank=False,default = None)
