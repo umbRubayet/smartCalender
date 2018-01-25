@@ -15,7 +15,6 @@ from .models import Note
 
 class UserSerializer(serializers.ModelSerializer):
 
-
     class Meta:
         model = User
         fields = ('id','mail','password','name','phoneNumber','image')
@@ -91,3 +90,8 @@ class GroupTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = ('id','group_name')
+
+class FcmTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id','fcm_token')

@@ -14,6 +14,7 @@ class User(models.Model):
     name = models.CharField(max_length=255,blank=True,default=None, null=True)
     image = models.ImageField(upload_to='Image/', default=None, blank=True, null=True)
     phoneNumber = models.CharField(max_length=20,blank=True,default=None,null=True)
+    fcm_token = models.CharField(max_length=255,blank=True,default=None,null=True)
 
     def __str__(self):
         return "{}".format(self.mail)

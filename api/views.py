@@ -15,6 +15,7 @@ from .serializers import TagMeSerializer
 from .serializers import NoteSerializer
 from .serializers import TaskTagSerializer
 from .serializers import GroupTagSerializer
+from .serializers import FcmTokenSerializer
 #serializers--------
 
 
@@ -1150,3 +1151,30 @@ def changePassword(request,user_id):
             response={"success":False,"message":"couldn't update"}
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET','PUT'])
+def tokenOperation(request,user_id):
+    if request.method == 'PUT':
+        try:
+            fcm_token = request.POST.get('fcm_token')
+            user = User.objects.get(id=user_id)
+            user.fcm_token = fcm_token
+            user.save()
+
+            response = {"success":True,"message":"updated successfully"}
+            return Response(response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print(str(ex))
+            response = {"success":False,"message":"problem.."}
+            return Response (response,status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'GET':
+        try:
+            user = User.objects.get(id=user_id)
+            serializer = FcmTokenSerializer(user)
+            response = {"success":True,"message":"token","data":serializer.data}
+            return Response(response,status=status.HTTP_200_OK)
+
+        except Exception as ex:
+            print (str(ex))
+            response = {"success":False,"message":"problem","data":{}}
+            return Response (response,status=status.HTTP_400_BAD_REQUEST)
