@@ -45,12 +45,21 @@ from django.utils import timezone
 import hashlib
 import uuid
 import requests
-
+import datetime
 import csv
 import pandas as pd
 import threading
 import sys
+from pyfcm import FCMNotification
 # Create your views here.
+
+push_service = FCMNotification(api_key="AAAAsyKdE-k:APA91bEYtdNnpTGmUsi6h8HVdgzmsFmLO9lxFVXhhQ-aEdwkqi5SOFq5nOPS4OSxZ1luZ2iFYNYdqbjghTp07Vl8NR4YjAJnt5mnjk81RrF49kaQORu-NTzVYAsQFic0HYyxowvcA61U")
+
+TASK_TYPE = 1
+GROUP_TYPE = 2
+
+ADD_MESSAGE = " add you in"
+REMOVE_MESSAGE = " removed you from"
 
 @api_view (['POST'])
 def user_list(request):
@@ -60,14 +69,20 @@ def user_list(request):
             mail = request.POST.get('mail')
             password = request.POST.get('password')
             name = request.POST.get('name')
+
+            fcm_token = request.POST.get('fcm_token')
+            active = request.POST.get('active')
+            active = json.loads(active)
+
             exists = User.objects.filter(mail=mail).exists()
             if exists:
                 response = {"success":False,"data":{},"message":"already exists"}
                 return Response(response,status=status.HTTP_200_OK)
             else:
-                new_user = User.objects.create(mail=mail,password=password,image=None,name=name,phoneNumber=None)
+                new_user = User.objects.create(mail=mail,password=password,image=None,name=name,phoneNumber=None,fcm_token=fcm_token,active=active)
                 serializer = UserSerializer(new_user)
                 response = {"success":True,"data": serializer.data,"message":"Successfully signed up"}
+
                 return Response(response,status=status.HTTP_201_CREATED)
         except Exception as ex:
             print("exception signup... "+ str(ex))
@@ -82,10 +97,18 @@ def login(request):
         try:
             requested_mail = request.POST.get('mail')
             requested_password = request.POST.get('password')
+
+            fcm_token = request.POST.get('fcm_token')
+            active = request.POST.get('active')
+            active = json.loads(active)
+
             exists = User.objects.filter(mail = requested_mail).exists()
 
             if exists :
                 user = User.objects.get(mail=requested_mail)
+                user.fcm_token = fcm_token
+                user.active = active
+                user.save()
                 serializer = UserSerializer(user)
                 if requested_password ==  user.password :
                     response = {"success":True,"data":serializer.data,"message":"logged in"}
@@ -133,24 +156,83 @@ def topTaskUpdateMonthView(user_id,date):
     monthView_user[0].all_done = topTasks_dict['all_done']
     monthView_user[0].save()
 
-def personTag(tagged,user_id,task_id, date):
+
+def personTag(tagged,user_id,event_id, date,event_type):
     try:
         for tagged_user_id in tagged:
-            TagMe.objects.create(tagged_id=tagged_user_id,tagger_id=user_id,task_id=task_id,date=date)
+            TagMe.objects.create(tagged_id=tagged_user_id,tagger_id=user_id,event_id=event_id,date=date,event_type=event_type)
     except Exception as ex:
         print ("person tag exception..." + str(ex))
 
-def groupTag(group_tag_list, user_id, task_id):
+
+def groupTag(group_tag_list, user_id, event_id,date,event_type):
     try:
         for group_id in group_tag_list:
             group_object = Group.objects.get(id=group_id)
             group_people_list = group_object.group_list
 
             for tagged_person in group_people_list:
-                TagMe.objects.create(tagger_id=user_id,tagged_id=tagged_person,task_id=task_id,date=date)
+                TagMe.objects.create(tagger_id=user_id,tagged_id=tagged_person,event_id=event_id,date=date,event_type=event_type)
 
     except Exception as ex:
         print("group tag exception..." + str(ex))
+
+
+
+def fcmNotification(initiator_id, to_notify_user_list, event_type, event_id, message_action):
+
+    set_list = set(to_notify_user_list)
+    to_notify_user_list = list(set_list)
+
+    by_notify_user = User.objects.get(id = initiator_id)
+    to_notify_users = User.objects.filter(id__in=to_notify_user_list)
+    serializer = FcmTokenSerializer(to_notify_users, many=True)
+
+    friends_registration_tokens = []
+    nonFriends_registration_tokens = []
+
+    tagger_name = by_notify_user.name
+    tagger_id = initiator_id
+
+    for to_notify_user in serializer.data:
+        to_notify_id = to_notify_user.get('id')
+        print("id_type.. "+ str(type(to_notify_id)))
+        is_friend = alreadyFriend(to_notify_id, initiator_id)
+        try:
+            if is_friend:
+                if to_notify_user.get('fcm_token'):
+                    friends_registration_tokens.append(to_notify_user.get('fcm_token'))
+            else:
+                if to_notify_user.get('fcm_token'):
+                    nonFriends_registration_tokens.append(to_notify_user.get('fcm_token'))
+        except Exception as ex:
+            print(str(ex))
+
+    if event_type == TASK_TYPE :
+        task = Task.objects.get(id=event_id)
+        title = task.title
+        message_title= "Task Tag Alert"
+        message_body = tagger_name + " " +  message_action + title + " task"
+
+    elif event_type == GROUP_TYPE :
+        group = Group.objects.get(id=event_id)
+        title = group.group_name
+        message_title="Group Tag Alert"
+        message_body = tagger_name + " "+ message_action + title + " group"
+
+
+    data = {}
+    data['tagger_id']=tagger_id
+    data['tagger_name'] = tagger_name
+    data['event_type'] = event_type
+    data['event_id'] = event_id
+
+    if len(friends_registration_tokens) > 0:
+        result = push_service.notify_multiple_devices(registration_ids=friends_registration_tokens, message_body = " YOUR FRIEND " + message_body, data_message=data)
+    if len(nonFriends_registration_tokens)>0:
+        result = push_service.notify_multiple_devices(registration_ids=nonFriends_registration_tokens, message_body = " NOT FRIEND  " + message_body, data_message=data)
+    print("noti...." + str(result))
+
 
 @api_view(['POST','GET'])
 def task(request, user_id):
@@ -158,7 +240,7 @@ def task(request, user_id):
     if request.method == 'POST':
         try:
             date = request.POST.get('date')
-            image = request.POST.get('image_id') 
+            image = request.POST.get('image_id')
             category = request.POST.get('category')
             title = request.POST.get('title')
             from_time = request.POST.get('from_time')
@@ -198,13 +280,29 @@ def task(request, user_id):
             t.start()
 
             if tagged:
-                t1 = threading.Thread(target=personTag, args=(tagged,user_id,task.id,date))
+                t1 = threading.Thread(target = personTag, args=(tagged,user_id,task.id,date, TASK_TYPE))
                 t1.start()
 
             if group_tag_list:
-                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id, date))
+                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id, date, TASK_TYPE ))
                 t2.start()
 
+            send_notification_list = []
+
+            if tagged:
+                send_notification_list = tagged
+
+            if group_tag_list:
+                for group_id in group_tag_list:
+                    group_object = Group.objects.get(id=group_id)
+                    group_people_list = group_object.group_list
+                    send_notification_list.extend(group_people_list)
+
+            if len(send_notification_list)>0:
+                t3 = threading.Thread(target=fcmNotification, args=(user_id, send_notification_list, TASK_TYPE , task.id , ADD_MESSAGE ))
+                t3.start()
+
+            # group people get
 
             print("monthview")
             return Response(response, status = status.HTTP_201_CREATED)
@@ -222,16 +320,25 @@ def task(request, user_id):
             for data in serializer.data:
                 group_list = []
                 if data['group_tag'] is not None:
-                    for group_id in data['group_tag']:
-                        group_info = {}
-                        group = Group.objects.get(id=group_id)
-                        group_info['name'] = group.group_name
-                        group_info['id'] = group.id
-                        group_list.append(group_info)
+                    groups = Group.objects.filter(id__in=data['group_tag'])
+                    groups_serializer = GroupTagSerializer(groups,many=True)
+                    #for group_id in data['group_tag']:
+                        #group_info = {}
+                        #group = Group.objects.get(id=group_id)
+                        #group_info['name'] = group.group_name
+                        #group_info['id'] = group.id
+                        #group_list.append(group_info)
 
-                    data['group'] = group_list
+                    data['groups'] = groups_serializer.data
+
+                if data['tagged'] :
+                    friends = User.objects.filter(id__in=data['tagged'])
+                    friends_serializer = ProfileSerializer(friends,many=True)
+                    data['friends'] = friends_serializer.data
+
             response = {"success":True, "message":"all detailed tasks", "data":serializer.data}
             return Response (response, status= status.HTTP_200_OK)
+
         except Exception as ex:
             response = {"success":False,"message":"error occured", "data":[] }
             return Response (response, status=status.HTTP_400_NOT_FOUND)
@@ -281,14 +388,16 @@ def getTasksfromDate(request,user_id):
                 group_list = []
                 person_list = []
                 if data['group_tag'] is not None:
-                    for group_id in data['group_tag']:
-                        group_info = {}
-                        group = Group.objects.get(id=group_id)
-                        group_info['name'] = group.group_name
-                        group_info['id'] = group.id
-                        group_list.append(group_info)
+                    groups = Group.objects.filter(id__in=data['group_tag'])
+                    groups_serializer = GroupTagSerializer(groups,many=True)
+                    #for group_id in data['group_tag']:
+                        #group_info = {}
+                        #group = Group.objects.get(id=group_id)
+                        #group_info['name'] = group.group_name
+                        #group_info['id'] = group.id
+                        #group_list.append(group_info)
 
-                    data['group'] = group_list
+                    data['group'] = groups_serializer.data
                 else:
                     data['group']=[]
 
@@ -300,10 +409,13 @@ def getTasksfromDate(request,user_id):
 
                 else:
                     data['tagged_persons'] = []
+                
                 del data['group_tag']
                 del data['tagged']
+
             response = {"success":True,"message":"all tasks of date","data":serializer.data}
             return Response(response,status=status.HTTP_200_OK)
+        
         except Exception as ex:
             print(str(ex))
             response = {"success":False,"message":"error occured", "data":[]}
@@ -321,7 +433,7 @@ def editTask(request, task_id):
 
             response = {"success":True,"message":"deleted"}
 
-            tags_with_task = TagMe.objects.filter(task_id=task_id)
+            tags_with_task = TagMe.objects.filter(event_type=1,event_id=task_id)
             tags_with_task.delete()
 
             """ MonthView Update """
@@ -375,9 +487,11 @@ def editTask(request, task_id):
             task.to_time = to_time
             task.description = description
             task.reminders = reminders
+            previous_tagged = task.tagged
             task.tagged = tagged
             task.tag_flag = tag_flag
             task.group_tag = group_tag_list
+            previous_group_tag = group_tag_list
             task.image = image
             task.save()
 
@@ -386,24 +500,33 @@ def editTask(request, task_id):
             serializer = TaskSerializer(task)
             response = {"success":True,"message":"updated successfully","data":[serializer.data]}
 
-            print("response")
             """post task to month view to update internally """
 
-            print("top task")
 
-            tags_with_task = TagMe.objects.filter(task_id=task_id)
+            people_to_discard_list = list(set(previous_tagged) - set(tagged))
+            people_to_add_list = list(set(tagged) - set(previous_tagged))
+
+            tags_with_task = TagMe.objects.filter( event_type = TASK_TYPE , event_id=task_id)
             tags_with_task.delete()
 
-            t = threading.Thread(target=topTaskUpdateMonthView, args=(user_id,date))
+            t = threading.Thread( target = topTaskUpdateMonthView, args=(user_id,date))
             t.start()
 
             if tagged:
-                t1 = threading.Thread(target=personTag, args=(tagged,user_id,task.id))
+                t1 = threading.Thread(target=personTag, args=( tagged, user_id, task.id, date, TASK_TYPE ))
                 t1.start()
 
             if group_tag_list:
-                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id))
+                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id, date, TASK_TYPE ))
                 t2.start()
+
+            if  len(people_to_discard_list) > 0:
+                t3 = threading.Thread(target=fcmNotification, args=(user_id, people_to_discard_list, TASK_TYPE , task.id, REMOVE_MESSAGE ))
+                t3.start()
+
+            if len(people_to_add_list) > 0 :
+                t4 = threading.Thread(target=fcmNotification, args=(user_id, people_to_add__list, TASK_TYPE , task.id, ADD_MESSAGE ))
+                t4.start()
 
             print("monthview sAVE")
             return Response (response,status = status.HTTP_200_OK)
@@ -418,14 +541,16 @@ def editTask(request, task_id):
             group_list = []
             person_list = []
             if serializer['group_tag'] is not None:
-                for group_id in data['group_tag']:
-                    group_info = {}
-                    group = Group.objects.get(id=group_id)
-                    group_info['name'] = group.group_name
-                    group_info['id'] = group.id
-                    group_list.append(group_info)
+                groups = Group.objects.filter(id__in=data['group_tag'])
+                groups_serializer = GroupTagSerializer(groups,many=True)
+                #for group_id in data['group_tag']:
+                    #group_info = {}
+                    #group = Group.objects.get(id=group_id)
+                    #group_info['name'] = group.group_name
+                    #group_info['id'] = group.id
+                    #group_list.append(group_info)
 
-                data['group'] = group_list
+                data['group'] = groups_serializer.data
             else:
                 data['group']=[]
 
@@ -905,6 +1030,7 @@ def holiday(request,country):
             response = {"success":False,"message":"country's holiday data is not available"}
             return Response(response,status=status.HTTP_404_NOT_FOUND)
 
+
 @api_view(['POST','GET'])
 def group(request,user_id):
     if request.method == 'POST':
@@ -943,6 +1069,7 @@ def group(request,user_id):
             print("exception..." + str(ex))
             response = {"success": False , "message":"exception..."}
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['GET','PUT','DELETE'])
 def singleGroup(request,user_id,group_id):
@@ -1004,7 +1131,7 @@ import traceback
 def tag(request,tagged_id):
     if request.method == 'GET':
         try:
-            tags = TagMe.objects.filter(tagged_id=tagged_id)
+            tags = TagMe.objects.filter(tagged_id=tagged_id, date__gte=datetime.date.today()).order_by('date')
             serializer = TagMeSerializer(tags,many=True)
             tag_hoichi_list = []
             for tag in serializer.data:
@@ -1012,40 +1139,71 @@ def tag(request,tagged_id):
                 tagger = User.objects.get(id=tag['tagger_id'])
                 tagger_serializer = ProfileSerializer(tagger)
                 tag_dict['tag_korche'] = [tagger_serializer.data]
-                task  = Task.objects.get(id=tag['task_id'])
-                task_tag_serializer = TaskTagSerializer(task)
-                tag_dict['task'] = task_tag_serializer.data
+                event_type = tag['event_type']
+                if event_type==1:
+                    task  = Task.objects.get(id=tag['event_id'])
+                    task_tag_serializer = TaskTagSerializer(task)
+                    tag_dict['task'] = task_tag_serializer.data
+                    tag_dict['event_type'] = event_type
+
+                if event_type==2:
+                    group = Group.objects.get(id=tag['event_id'])
+                    group_serializer = GroupTagSerializer(group)
+                    tag_dict['group_info'] = group_serializer.data
+                    tag_dict['event_type'] = event_type
+                
+                tag_dict['action'] = tag['action']
+                is_friend = alreadyFriend(tagged_id, tag['tagger_id'])
+                tag_dict['is_friend'] = is_friend
                 tag_hoichi_list.append(tag_dict)
             serializer.tag_hoichi = tag_hoichi_list
 
-            diff_tasks = TagMe.objects.filter(tagger_id=tagged_id).distinct('task_id')
+            diff_tasks = TagMe.objects.filter(tagger_id=tagged_id,event_type=1,date__gte=datetime.date.today()).order_by('date')
             serializer_k = TagMeSerializer(diff_tasks,many=True)
+
             tag_korchi_list = []
+            event_set = set()
 
             for tag in serializer_k.data:
                 try:
                     tag_dict = {}
-                    task = Task.objects.get(id=tag['task_id'])
-                    people_tag = task.tagged
-                    group_tag = task.group_tag
+                    event_type = tag['event_type']
+                    event_id = tag['event_id']
 
-                    tagged_users = User.objects.filter(id__in=people_tag)
-                    tagged_serializer = ProfileSerializer(tagged_users,many=True)
+                    is_already_processed = (event_type,event_id) in event_set
+                    if not is_already_processed:
+                        if event_type==1:
+                            task = Task.objects.get(id=tag['event_id'])
+                            people_tag = task.tagged
+                            group_tag = task.group_tag
 
-                    tag_dict['people_tag_korchi'] = tagged_serializer.data
+                            tagged_users = User.objects.filter(id__in=people_tag)
+                            tagged_serializer = ProfileSerializer(tagged_users,many=True)
 
-                    groups = Group.objects.filter(id__in=group_tag)
-                    groups_serializer = GroupTagSerializer(groups,many=True)
-                    tag_dict['group_tag_korchi'] = groups_serializer.data
+                            tag_dict['people_tag_korchi'] = tagged_serializer.data
 
-                    task_tag_serializer = TaskTagSerializer(task)
-                    tag_dict['task'] = task_tag_serializer.data
-                    tag_korchi_list.append(tag_dict)
+                            groups = Group.objects.filter(id__in=group_tag)
+                            groups_serializer = GroupTagSerializer(groups,many=True)
+                            tag_dict['group_tag_korchi'] = groups_serializer.data
+
+                            task_tag_serializer = TaskTagSerializer(task)
+                            tag_dict['task'] = task_tag_serializer.data
+                            tag_korchi_list.append(tag_dict)
+
+                            event_set.add(event_type,event_id)
+
+                        #elif event_type == 2:
+                            #group = Group.objects.get(id=event_id)
+                            #group_serializer = GroupTagSerializer(group)
+                            #tag_dict['group']=group_serializer.data
+                            #tag_korchi_list.append(tag_dict)
+                    else:
+                        print("already processed . . ." )
                 except Exception as ex:
                     print(str(ex))
             serializer_k.tag_korchi = tag_korchi_list
 
-            response = {"success":True,"message":"tagged tasks","data":serializer.data,"tag_hoichi":serializer.tag_hoichi,"tag_korchi":serializer_k.tag_korchi}
+            response = {"success":True,"message":"tagged tasks","tag_hoichi":serializer.tag_hoichi,"tag_korchi":serializer_k.tag_korchi}
             return Response (response, status=status.HTTP_200_OK)
         except Exception as ex:
             print("exception..." + str(ex))
@@ -1064,6 +1222,33 @@ def tag(request,tagged_id):
             print ("exception tag me ... "+ str(ex))
             response = {"success":False,"message":"error ...","data":[]}
             return Response (response, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def notification(request,user_id):
+    if request.method == "GET":
+        try:
+            all_notifications = TagMe.objects.filter(tagged_id=user_id,date__gte=datetime.date.today()).order_by('date')[:15]
+            serializer = TagMeSerializer(all_notifications,many=True)
+
+            for data in serializer.data:
+                tagger_id = data['tagger_id']
+                tagger_user = User.objects.get(id = tagger_id)
+                tagger_name = tagger_user.name
+                data['tagger_name'] = tagger_name
+                event_type = data['event_type']
+                if event_type == 1:
+                    task = Task.objects.get(id=data['event_id'])
+                    title = task.title
+                elif event_type ==2:
+                    group = Group.objects.get(id=data['event_id'])
+                    title = group.group_name
+                data['title'] = title
+            response = {"success":True,"message":"notis","data":serializer.data}
+            return Response(response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print(str(ex))
+            response = {"success":False,"message":"errors .. . .","data":[]}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET','POST'])
 def notePost(request, user_id):
@@ -1156,8 +1341,12 @@ def tokenOperation(request,user_id):
     if request.method == 'PUT':
         try:
             fcm_token = request.POST.get('fcm_token')
+            active = request.POST.get('active')
+            active = json.loads(active)
+
             user = User.objects.get(id=user_id)
             user.fcm_token = fcm_token
+            user.active = active
             user.save()
 
             response = {"success":True,"message":"updated successfully"}
@@ -1178,3 +1367,19 @@ def tokenOperation(request,user_id):
             print (str(ex))
             response = {"success":False,"message":"problem","data":{}}
             return Response (response,status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT'])
+def tagAction(request,tagged_id,tag_id):
+    if request.method == 'PUT':
+        try:
+            action = request.POST.get('action')
+            tagRow = TagMe.objects.get(id=tag_id)
+            tagRow.action = action
+            tagRow.save()
+            response = {"success":True,"message":"action updated"}
+            return Response(response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print("tagAction error..  "+str(ex))
+            response = {"success":False,"message":"error.. "}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
+

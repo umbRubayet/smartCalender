@@ -15,6 +15,7 @@ class User(models.Model):
     image = models.ImageField(upload_to='Image/', default=None, blank=True, null=True)
     phoneNumber = models.CharField(max_length=20,blank=True,default=None,null=True)
     fcm_token = models.CharField(max_length=255,blank=True,default=None,null=True)
+    active = models.BooleanField(default=False)
 
     def __str__(self):
         return "{}".format(self.mail)
@@ -88,11 +89,14 @@ class Group(models.Model):
     group_name = models.CharField(max_length=255, default = None, blank=True, null=True)
     group_list = JSONField(default=group_default, blank=True, null=True)
 
+# event type, task =1, group = 2
 class TagMe(models.Model):
     tagged_id = models.IntegerField(blank=False,default=None)
     tagger_id = models.IntegerField(blank=False,default=None)
-    task_id = models.IntegerField(blank=False,default=None)
+    event_id = models.IntegerField(blank=False,default=None)
     date = models.DateField(blank=False, default = datetime.today) 
+    event_type = models.IntegerField(blank=False,default=1)
+    action = models.IntegerField(blank=False,default=0)
 
 class Note(models.Model):
     user_id = models.IntegerField(blank=False,default = None)

@@ -74,7 +74,7 @@ class GroupSerializer(serializers.ModelSerializer):
 class TagMeSerializer(serializers.ModelSerializer):
     class Meta:
         model = TagMe
-        fields = ('id','tagged_id','tagger_id','task_id')
+        fields = ('id','tagged_id','tagger_id','event_id','event_type','action','date')
 
 class NoteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -94,4 +94,4 @@ class GroupTagSerializer(serializers.ModelSerializer):
 class FcmTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id','fcm_token')
+        fields = ('id','fcm_token','active')
