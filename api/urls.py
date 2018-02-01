@@ -35,6 +35,7 @@ urlpatterns = [
     url(r'^notification/(?P<user_id>\d+)/$',views.notification),
     #url(r'^fcm/', include('fcm.urls')),
     url(r'^tagaction/(?P<tagged_id>\d+)/(?P<tag_id>\d+)/$',views.tagAction),
+    url(r'^groupoffer/(?P<invited_user>\d+)/(?P<group_id>\d+)/$',views.groupInvitation),
 ] + static(settings.MEDIA_URL, document_root= settings.MEDIA_ROOT)
 
 urlpatterns = format_suffix_patterns(urlpatterns)

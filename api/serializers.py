@@ -12,6 +12,7 @@ from .models import Holiday
 from .models import Group
 from .models import TagMe
 from .models import Note
+from .models import GroupMap
 
 class UserSerializer(serializers.ModelSerializer):
 
@@ -95,3 +96,8 @@ class FcmTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id','fcm_token','active')
+
+class GroupMapSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GroupMap
+        fields = ('id','user_id','group_id')

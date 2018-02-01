@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'api',
     'fcm_django',
+    'push_notifications'
 ]
 
 MIDDLEWARE = [
@@ -150,3 +151,11 @@ SERVER_EMAIL = 'umbrubayet@gmail.com'
 
 FCM_APIKEY = "AAAAlkj3tIM:APA91bELaQHJRy709Qlol7bAvbDfdioSQXQ64WEvj5xPgyj0ASiQOV-5H0JLgXXAeptQ9TAZfOlCAkjcq7qEDHFCHwYGTWUwicAPFVscP_Wliuer42t6BjsT9rPSFjshmQfmcNYFK8KI"
 
+
+PUSH_NOTIFICATIONS_SETTINGS = {
+"FCM_API_KEY": "AAAAlkj3tIM:APA91bF11FDRvlglrCYz_stuJBlX1h354eZ1FxZIYuJi_zz0zC2gJTTlFDQjPG_GfpeH236Nwn3D6jDBju97ZyVtVJlMjqXGO0tvfkApf-Vs-vUj9MYIXFhgy1vcAra68CCiUH1an-kQ",
+}
+
+FCM_DJANGO_SETTINGS = {
+    "FCM_SERVER_KEY":"AAAAlkj3tIM:APA91bELaQHJRy709Qlol7bAvbDfdioSQXQ64WEvj5xPgyj0ASiQOV-5H0JLgXXAeptQ9TAZfOlCAkjcq7qEDHFCHwYGTWUwicAPFVscP_Wliuer42t6BjsT9rPSFjshmQfmcNYFK8KI"
+}
