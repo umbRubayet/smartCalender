@@ -63,8 +63,8 @@ push_service = FCMNotification(api_key="AAAAsyKdE-k:APA91bEYtdNnpTGmUsi6h8HVdgzm
 TASK_TYPE = 1
 GROUP_TYPE = 2
 
-ADD_MESSAGE = " add you in"
-REMOVE_MESSAGE = " removed you from"
+ADD_MESSAGE = " add you in "
+REMOVE_MESSAGE = " removed you from "
 
 @api_view (['POST'])
 def user_list(request):
@@ -107,10 +107,10 @@ def login(request):
             active = request.POST.get('active')
             active = json.loads(active)
 
-            exists = User.objects.filter(mail = requested_mail).exists()
+            user = User.objects.filter(mail = requested_mail)
 
-            if exists :
-                user = User.objects.get(mail=requested_mail)
+            if user :
+                user = user[0]
 
                 if requested_password ==  user.password :
                     if user.fcm_token:
@@ -118,13 +118,12 @@ def login(request):
                         if fcm_token in old_token_list:
                             pass
                         else:
-                            token_list = user.fcm_token
-                            token_list.append(fcm_token)
+                            old_token_list.append(fcm_token)
+                            user.fcm_token = old_token_list
+                            user.save()
                     else :
                         user.fcm_token = [fcm_token]
-
-                    user.active = active
-                    user.save()
+                        user.save()
 
                     serializer = UserSerializer(user)
                     response = {"success":True,"data":serializer.data,"message":"logged in"}
@@ -145,11 +144,9 @@ def login(request):
 def get_month_tasks(request, user_id):
     """ get all tasks for an user from monthView table in specific date range """
     if request.method == 'GET':
-        exists = MonthView.objects.filter(user_id = user_id).exists()
-
-        if exists :
+        monthViewAllTasks = MonthView.objects.filter(user_id = user_id)
+        if monthViewAllTasks :
             try:
-                monthViewAllTasks = MonthView.objects.filter(user_id = user_id)
                 serializer = MonthViewSerializer(monthViewAllTasks, many=True)
                 response = {"success":True, "data":serializer.data, "message":"all tasks of month"}
                 return Response(response, status = status.HTTP_200_OK)
@@ -274,7 +271,7 @@ def task(request, user_id):
             tag_flag = json.loads(tag_flag)
             group_tag = request.POST.get('group_tag')
             group_tag_list = json.loads(group_tag)
-            
+
             print("date...." + str(date))
 
             if not from_time:
@@ -301,27 +298,25 @@ def task(request, user_id):
             t = threading.Thread(target=topTaskUpdateMonthView, args=(user_id,date))
             t.start()
 
-            if tagged:
-                t1 = threading.Thread(target = personTag, args=(tagged,user_id,task.id,date, TASK_TYPE))
-                t1.start()
+            send_notification_list = []
+            all_tag_people_list = []
 
             if group_tag_list:
-                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id, date, TASK_TYPE ))
-                t2.start()
+                person_list = list(Group.objects.filter(id__in=group_tag_list).values_list('group_list',flat=True))
+                flat_list = list(set(item for sublist in person_list for item in sublist))
+                send_ntification_list = flat_list
+                all_tag_people_list = flat_list
 
-            send_notification_list = []
-            d = datetime.datetime.strptime(date, "%Y-%m-%d").date() 
-            if d >= datetime.date.today():
-                if tagged:
-                    send_notification_list = tagged
+            if tagged:
+                all_tag_people_list.extend(tagged)
+                all_tag_people_list = list(set(all_tag_people_list))
 
-                if group_tag_list:
-                    for group_id in group_tag_list:
-                        group_object = Group.objects.get(id=group_id)
-                        group_people_list = group_object.group_list
-                        send_notification_list.extend(group_people_list)
+            if len(all_tag_people_list)>0:
+                t1 = threading.Thread(target = personTag, args=(all_tag_people_list,user_id,task.id,date, TASK_TYPE))
+                t1.start()
 
-                if len(send_notification_list)>0:
+                d = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+                if d >= datetime.date.today():
                     t3 = threading.Thread(target=fcmNotification, args=(user_id, send_notification_list, TASK_TYPE , task.id , ADD_MESSAGE ))
                     t3.start()
 
