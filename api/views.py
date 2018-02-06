@@ -175,8 +175,13 @@ def topTaskUpdateMonthView(user_id,date):
 
 def personTag(tagged,user_id,event_id, date,event_type):
     try:
+        bulk_data_list = []
         for tagged_user_id in tagged:
-            TagMe.objects.create(tagged_id=tagged_user_id,tagger_id=user_id,event_id=event_id,date=date,event_type=event_type)
+            tagMe_obj = TagMe(tagged_id=tagged_user_id,tagger_id=user_id,event_id=event_id,date=date,event_type=event_type)
+            bulk_data_list.append(tagMe_obj)
+
+        #TagMe.objects.create(tagged_id=tagged_user_id,tagger_id=user_id,event_id=event_id,date=date,event_type=event_type)
+        TagMe.objects.bulk_create(bulk_data_list)
     except Exception as ex:
         print ("person tag exception..." + str(ex))
 
