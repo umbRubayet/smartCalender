@@ -206,8 +206,7 @@ def fcmNotification(initiator_id, to_notify_user_list, event_type, event_id, mes
     to_notify_user_list = list(set_list)
 
     by_notify_user = User.objects.get(id = initiator_id)
-    to_notify_users = User.objects.filter(id__in=to_notify_user_list)
-    serializer = FcmTokenSerializer(to_notify_users, many=True)
+    to_notify_users = list(User.objects.filter(id__in=to_notify_user_list).values('id','fcm_token'))
 
     friends_registration_tokens = []
     nonFriends_registration_tokens = []
@@ -216,17 +215,17 @@ def fcmNotification(initiator_id, to_notify_user_list, event_type, event_id, mes
     tagger_id = initiator_id
     print("fcm... "+ str(to_notify_user_list) )
     print(serializer.data)
-    for to_notify_user in serializer.data:
-        to_notify_id = to_notify_user.get('id')
+    for to_notify_user in to_notify_users:
+        to_notify_id = to_notify_user['id']
 
         is_friend = alreadyFriend(to_notify_id, initiator_id)
         try:
             if is_friend:
-                if to_notify_user.get('fcm_token'):
-                    friends_registration_tokens.extend(to_notify_user.get('fcm_token'))
+                if to_notify_user['fcm_token']:
+                    friends_registration_tokens.extend(to_notify_user['fcm_token'])
             else:
-                if to_notify_user.get('fcm_token'):
-                    nonFriends_registration_tokens.extend(to_notify_user.get('fcm_token'))
+                if to_notify_user['fcm_token']:
+                    nonFriends_registration_tokens.extend(to_notify_user['fcm_token'])
         except Exception as ex:
             print(str(ex))
 
@@ -380,7 +379,7 @@ def topTaskofDate(user_id,date):
 
         allTasks = Task.objects.filter(user_id=user_id, date=date, complete=False).order_by("from_time")
         taskCount = allTasks.count()
-        tag_tasks=allTasks.filter(tag_flag=True)
+        tag_tasks = allTasks.filter(tag_flag=True)
         tag_flag = False
         if tag_tasks.count() > 0:
             tag_flag = True
@@ -459,7 +458,7 @@ def editTask(request, task_id):
 
             response = {"success":True,"message":"deleted"}
 
-            tags_with_task = TagMe.objects.filter(event_type=1,event_id=task_id)
+            tags_with_task = TagMe.objects.filter(event_type=TASK_TYPE,event_id=task_id)
             tags_with_task.delete()
 
             """ MonthView Update """
@@ -528,29 +527,57 @@ def editTask(request, task_id):
 
             """post task to month view to update internally """
 
+            if not tagged:
+                tagged=[]
+            if not previous_tagged:
+                previous_tagged = []
+            if not group_tag:
+                group_tag=[]
+            if not previous_group_tag:
+                previous_group_tag=[]
 
-            people_to_discard_list = list(set(previous_tagged) - set(tagged))
+            #people_to_discard_list = list(set(previous_tagged) - set(tagged))
             people_to_add_list = list(set(tagged) - set(previous_tagged))
+
+            #group_to_discard_list = list(set(previous_group_tag)-set(group_tag))
+            group_to_add_list = list(set(group_tag)-set(previous_group_tag))
+
 
             tags_with_task = TagMe.objects.filter( event_type = TASK_TYPE , event_id=task_id)
             tags_with_task.delete()
 
-            t = threading.Thread( target = topTaskUpdateMonthView, args=(user_id,date))
+            t = threading.Thread(target = topTaskUpdateMonthView, args=(user_id,date))
             t.start()
 
+            add_notification_list = []
+            remove_notification_list=[]
+            add_tag_people_list = []
+            remove_tag_people_list = []
+
+            if group_tag:
+                person_list = list(Group.objects.filter(id__in=group_tag).values_list('group_list',flat=True))
+                flat_list = list(set(item for sublist in person_list for item in sublist))
+                add_tag_people_list = flat_list
+
             if tagged:
+                add_tag_people_list.extend(tagged)
+
+            if len(group_to_add_list)>0:
+                person_list = list(Group.objects.filter(id__in=group_to_add_list).values_list('group_list',flat=True))
+                flat_list = list(set(item for sublist in person_list for item in sublist))
+                add_notification_list = flat_list
+
+            if len(people_to_add_list)>0:
+                add_notification_list.extend(people_to_tag_list)
+
+            add_tag_people_list = list(set(add_tag_people_list))
+            add_notification_list = list(set(add_notification_list))
+
+            if len(add_tag_people_list)>0:
                 t1 = threading.Thread(target=personTag, args=( tagged, user_id, task.id, date, TASK_TYPE ))
                 t1.start()
 
-            if group_tag_list:
-                t2 = threading.Thread(target=groupTag, args=(group_tag_list, user_id, task.id, date, TASK_TYPE ))
-                t2.start()
-
-            if  len(people_to_discard_list) > 0:
-                t3 = threading.Thread(target=fcmNotification, args=(user_id, people_to_discard_list, TASK_TYPE , task.id, REMOVE_MESSAGE ))
-                t3.start()
-
-            if len(people_to_add_list) > 0 :
+            if len(add_notification_list)>0:
                 t4 = threading.Thread(target=fcmNotification, args=(user_id, people_to_add__list, TASK_TYPE , task.id, ADD_MESSAGE ))
                 t4.start()
 
