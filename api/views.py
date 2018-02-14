@@ -86,6 +86,10 @@ def user_list(request):
             else:
                 new_user = User.objects.create(mail=mail,password=password,image=None,name=name,phoneNumber=None,fcm_token=[fcm_token],active=active)
                 serializer = UserSerializer(new_user)
+                try:
+                    send_mail('MY CALENDAR','your password is -- '+ password +" for My Calendar " ,'umbrubayet@gmail.com',[mail])
+                except Exception as ex:
+                    print(str(ex))
                 response = {"success":True,"data": serializer.data,"message":"Successfully signed up"}
 
                 return Response(response,status=status.HTTP_201_CREATED)
@@ -134,7 +138,7 @@ def login(request):
 
             else:
                 response = {"success":False,"message":"user doesn't exist"}
-                return Response(response, status=status.HTTP_404_NOT_FOUND)
+                return Response(response, status=status.HTTP_200_OK)
         except Exception as ex:
             print("exception login... "+ str(ex))
             response = {"success":False,"data":{}, "message":"bad request"}
@@ -214,7 +218,7 @@ def fcmNotification(initiator_id, to_notify_user_list, event_type, event_id, mes
     tagger_name = by_notify_user.name
     tagger_id = initiator_id
     print("fcm... "+ str(to_notify_user_list) )
-    print(serializer.data)
+    #print(serializer.data)
     for to_notify_user in to_notify_users:
         to_notify_id = to_notify_user['id']
 
@@ -314,6 +318,8 @@ def task(request, user_id):
             if tagged:
                 all_tag_people_list.extend(tagged)
                 all_tag_people_list = list(set(all_tag_people_list))
+
+            send_notification_list = all_tag_people_list
 
             if len(all_tag_people_list)>0:
                 t1 = threading.Thread(target = personTag, args=(all_tag_people_list,user_id,task.id,date, TASK_TYPE))
@@ -482,10 +488,13 @@ def editTask(request, task_id):
         reminders = request.POST.get('reminders')
         reminders = json.loads(reminders)
         tagged = request.POST.get('tagged')
+        print("tagged... "+ tagged)
         tagged = json.loads(tagged)
+        print("tag... "+ str(tagged))
         tag_flag = request.POST.get('tag_flag')
         tag_flag = json.loads(tag_flag)
         group_tag = request.POST.get('group_tag')
+        print("group tag... "+ group_tag)
         group_tag_list = json.loads(group_tag)
 
         if not from_time:
@@ -494,13 +503,13 @@ def editTask(request, task_id):
             to_time=None
         if not description:
             description = None
-        if not reminders:
+        if len(reminders)==0:
             reminders = None
-        if not tagged:
+        if len(tagged)==0:
             tagged = None
         if not image:
             image = None
-        if not group_tag_list:
+        if len(group_tag_list)==0:
             group_tag_list = None
 
         try:
@@ -531,17 +540,21 @@ def editTask(request, task_id):
                 tagged=[]
             if not previous_tagged:
                 previous_tagged = []
-            if not group_tag:
-                group_tag=[]
+            if not group_tag_list:
+                group_tag_list=[]
             if not previous_group_tag:
                 previous_group_tag=[]
 
             #people_to_discard_list = list(set(previous_tagged) - set(tagged))
+            #print("Group tag: " + str(tagged)+ "PreviousGroupTage: " + str(previous_tagged))
             people_to_add_list = list(set(tagged) - set(previous_tagged))
 
+            #print("549.. "+str(people_to_add_list))
             #group_to_discard_list = list(set(previous_group_tag)-set(group_tag))
-            group_to_add_list = list(set(group_tag)-set(previous_group_tag))
-
+            #print("Group tag: " + str(type(group_tag))+ "PreviousGroupTage: " + str(type(previous_group_tag)))
+            group_to_add_list =[]
+            group_to_add_list = list(set(group_tag_list) - set(previous_group_tag))
+            print("555 ... "+ str(group_to_add_list))
 
             tags_with_task = TagMe.objects.filter( event_type = TASK_TYPE , event_id=task_id)
             tags_with_task.delete()
@@ -554,36 +567,46 @@ def editTask(request, task_id):
             add_tag_people_list = []
             remove_tag_people_list = []
 
-            if group_tag:
-                person_list = list(Group.objects.filter(id__in=group_tag).values_list('group_list',flat=True))
-                flat_list = list(set(item for sublist in person_list for item in sublist))
-                add_tag_people_list = flat_list
+            if len(group_tag)>0:
+                try:
+                    person_list = list(Group.objects.filter(id__in=group_tag_list).values_list('group_list',flat=True))
+                    flat_list = list(set(item for sublist in person_list for item in sublist))
+                    add_tag_people_list = flat_list
+                except Exception as ex:
+                    print(str(ex))
 
-            if tagged:
+            if len(tagged)>0:
                 add_tag_people_list.extend(tagged)
 
             if len(group_to_add_list)>0:
+                print("len.." + str(group_to_add_list))
                 person_list = list(Group.objects.filter(id__in=group_to_add_list).values_list('group_list',flat=True))
                 flat_list = list(set(item for sublist in person_list for item in sublist))
                 add_notification_list = flat_list
 
             if len(people_to_add_list)>0:
-                add_notification_list.extend(people_to_tag_list)
+                add_notification_list.extend(people_to_add_list)
 
             add_tag_people_list = list(set(add_tag_people_list))
             add_notification_list = list(set(add_notification_list))
 
             if len(add_tag_people_list)>0:
-                t1 = threading.Thread(target=personTag, args=( tagged, user_id, task.id, date, TASK_TYPE ))
+                print(str(add_tag_people_list))
+                t1 = threading.Thread(target=personTag, args=( add_tag_people_list, user_id, task.id, date, TASK_TYPE ))
                 t1.start()
 
             if len(add_notification_list)>0:
-                t4 = threading.Thread(target=fcmNotification, args=(user_id, people_to_add__list, TASK_TYPE , task.id, ADD_MESSAGE ))
+                print(str(add_notification_list))
+                t4 = threading.Thread(target=fcmNotification, args=(user_id, add_notification_list, TASK_TYPE , task.id, ADD_MESSAGE ))
                 t4.start()
 
             print("monthview sAVE")
             return Response (response,status = status.HTTP_200_OK)
-        except:
+        except Exception as ex:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
+            print(" edit task .. "+str(ex))
             response = {"success":False,"message":"couldn't update","data":[]}
             return Response (response,status=status.HTTP_400_BAD_REQUEST)
 
@@ -624,10 +647,11 @@ def editTask(request, task_id):
             return Response(response,status = status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
-def search(request, user_id , text):
+@api_view(['POST'])
+def search(request, user_id):
 
-    if request.method == 'GET':
+    if request.method == 'POST':
+        text = request.POST.get('searchtext')
         try:
             tasks = Task.objects.filter(user_id=user_id, title__icontains=text).order_by("date","from_time")
             serializer = TaskSearchSerializer(tasks, many=True)
@@ -696,9 +720,9 @@ def profile(request, user_id):
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'GET':
-        exists = User.objects.filter(id=user_id).exists()
-        if exists:
-            user = User.objects.get(id=user_id)
+        user = User.objects.filter(id=user_id)
+        if user:
+            user = user[0]
             try:
                 userSerializer = UserSerializer(user)
                 response = {"success":True,"message":"user found","data":userSerializer.data}
@@ -728,30 +752,37 @@ def alreadyFriend(user_id,friend_id):
     else:
         return False
 
-@api_view(['GET'])
-def findFriend(request, user_id, key):
-    if request.method == 'GET':
-
-        exists_mail = User.objects.filter(mail=key).exists()
-        exists_phone = User.objects.filter(phoneNumber=key).exists()
-
+@api_view(['POST'])
+def findFriend(request, user_id):
+    if request.method == 'POST':
+        search_type = request.POST.get('type')
+        search_type = json.loads(search_type)
+        key = request.POST.get('value')
+        user =False
+        try:
+            if search_type ==1:
+                user = User.objects.filter(mail=key)
+            elif search_type == 2:
+                user = User.objects.filter(phoneNumber=key)
+        except Exception as ex:
+            print(str(ex))
         already_friend = False
 
-        if exists_mail:
-            user = User.objects.get(mail=key)
+        if user:
+            user=user[0]
             profileSerializer = ProfileSerializer(user)
 
             already_friend =  alreadyFriend(user_id, user.id )
 
             response = {"already": already_friend, "success":True,"message":"user found","data":[profileSerializer.data]}
             return Response(response, status=status.HTTP_200_OK)
-        elif exists_phone:
-            user = User.objects.get(phoneNumber=key)
-            profileSerializer = ProfileSerializer(user)
+        #elif user_p:
+            #user_p=user_p[0]
+            #profileSerializer = ProfileSerializer(user_p)
 
-            already_friend = alreadyFriend(user_id,user.id)
-            response = {"already":already_friend,"success":True,"message":"user found","data":[profileSerializer.data]}
-            return Response(response, status=status.HTTP_200_OK)
+            #already_friend = alreadyFriend(user_id,user_p.id)
+            #response = {"already":already_friend,"success":True,"message":"user found","data":[profileSerializer.data]}
+            #return Response(response, status=status.HTTP_200_OK)
 
         else:
             response = {"already":already_friend, "success":True,"message":"user not found","data":[]}
@@ -803,9 +834,16 @@ def friend(request, user_id):
                 friend_list = user.friend_list['friend_id']
                 friends = User.objects.filter(id__in=friend_list)
                 serializer = ProfileSerializer(friends,many=True)
-                response = {"success":True,"data":serializer.data,"message":"all friends"}
+                datas = serializer.data
+                for data in datas:
+                    is_friend = alreadyFriend(data['id'],user_id)
+                    data['is_friend'] = is_friend
+            
+                #serializer = ProfileSerializer(friends,many=True)
+                response = {"success":True,"data":datas,"message":"all friends"}
                 return Response(response,status=status.HTTP_200_OK)
-            except:
+            except Exception as ex:
+                print(str(ex))
                 response = {"success":False, "data":[],"message":"error occured"} 
                 return Response (response, status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -904,23 +942,26 @@ def matchForgotPass(request):
         new_password = request.POST.get('password')
 
         exists = ForgotPass.objects.filter(token=token).exists()
+        
+        try:
+            if exists:
+                gajni_user = ForgotPass.objects.get(token=token)
+                gajni_mail = gajni_user.mail
+                user = User.objects.get(mail=gajni_mail)
+                user.password = new_password
+                user.save()
 
-        if exists:
-            gajni_user = ForgotPass.objects.get(token=token)
-            gajni_mail = gajni_user.mail
-            user = User.objects.get(mail=gajni_mail)
-            user.password = new_password
-            user.save()
+                gajni_user.delete()
 
-            gajni_user.delete()
+                response = {"success":True, "message":"password updated successfully"}
+                return Response(response, status=status.HTTP_200_OK)
 
-            response = {"success":True, "message":"password updated successfully"}
-            return Response(response, status=status.HTTP_200_OK)
-
-        else:
-            response = {"success":False, "message":"invalid token"}
-            return Response(response, status= status.HTTP_200_OK)
-
+            else:
+                response = {"success":False, "message":"invalid token"}
+                return Response(response, status= status.HTTP_200_OK)
+        except Exception as ex:
+            print(str(ex))
+            return Response({"success":False},status=status.HTTP_400_BAD_REQUEST)
 @api_view(['POST'])
 def syncTask(request,user_id):
     if request.method == 'POST':
@@ -928,6 +969,8 @@ def syncTask(request,user_id):
         data = request.POST.get('data')
         data_list = json.loads(data)
 
+        date_list = []
+        bulk_tasks = []
         try:
             for task in data_list:
                 date = task['date']
@@ -950,14 +993,21 @@ def syncTask(request,user_id):
                 group_tag = None
                 print("date .. "+str(date))
                 try :
-                    task = Task.objects.create(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders,group_tag=group_tag)
-
-                    t = threading.Thread(target=topTaskUpdateMonthView, args=(user_id,date))
-                    t.start()
+                    #task = Task.objects.create(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders,group_tag=group_tag)
+                    t = Task(user_id=user_id,date=date,title=title,from_time=from_time,to_time=to_time,image=image,category=category,description=description,complete=complete,tagged=tagged,tag_flag=tag_flag,reminders=reminders,group_tag=group_tag)
+                    bulk_tasks.append(t)
+                    date_list.append(date)
+                    #t = threading.Thread(target=topTaskUpdateMonthView, args=(user_id,date))
+                    #t.start()
 
                 except Exception as exc:
                     print("eception.... "+str(exc))
                     pass
+            Task.objects.bulk_create(bulk_tasks)
+
+            """ MONTH VIEW UPDATE """
+            for date in date_list:
+                topTaskUpdateMonthView(user_id,date)
 
             response = {"success":True,"message":"successfully updated"}
             return Response(response, status= status.HTTP_200_OK)
@@ -1092,18 +1142,23 @@ def groupInvitation(request, invited_user, group_id):
         group_id = json.loads(group_id)
         if reply:
             data_row = GroupMap.objects.create(user_id=invited_user,group_id=group_id)
-            group = Group.objects.get(id=group_id)
-            serializer = GroupSerializer(group)
-            response = {"success":True,"message":"added to the group","data":serializer.data}
+            #group = Group.objects.get(id=group_id)
+            #serializer = GroupSerializer(group)
+            response = {"success":True,"message":"added to the group","data":{}}
             return Response(response,status=status.HTTP_200_OK)
 
 def groupMapAdd(user_id, group_id, person_list):
+    group_map_list = []
     for person_id in person_list:
         is_friend = alreadyFriend(str(person_id), user_id)
 
         if is_friend:
-            GroupMap.objects.create(user_id=person_id, group_id=group_id)
-    GroupMap.objects.get_or_create(user_id=user_id, group_id=group_id)
+            obj = GroupMap(user_id=person_id,group_id=group_id)
+            group_map_list.append(obj)
+            #GroupMap.objects.create(user_id=person_id, group_id=group_id)
+    obj = GroupMap(user_id=user_id,group_id=group_id)
+    group_map_list.append(obj)
+    GroupMap.objects.bulk_create(group_map_list)
 
 @api_view(['POST','GET'])
 def group(request,user_id):
@@ -1134,8 +1189,8 @@ def group(request,user_id):
             print("after thread")
 
             date =datetime.date.today() + timedelta(days=1)
-            t1 = threading.Thread(target = personTag, args=(group_list,user_id, group.id, date, GROUP_TYPE))
-            t1.start()
+            t3 = threading.Thread(target = personTag, args=(group_list,user_id, group.id, date, GROUP_TYPE))
+            t3.start()
 
             group_friends = User.objects.filter(id__in=group_list)
             group_friends_serializer = ProfileSerializer(group_friends, many=True)
@@ -1236,15 +1291,11 @@ def singleGroup(request,user_id,group_id):
                 #else he has group but not owner.so leave from group
             if user_id_int in people_list:
                 try:
-                    print("1153")
                     group_name = group.group_name
                     groupMap_entry = GroupMap.objects.filter(user_id=user_id,group_id=group_id)
-                    print("1156")
                     groupMap_entry.delete()
-                    print("delete")
                     group.group_list.remove(user_id_int)
                     group.save()
-                    print("new save")
                     tag_with_group = TagMe.objects.filter(tagged_id=user_id,event_type=GROUP_TYPE,event_id=group_id)
                     tag_with_group.delete()
 
@@ -1266,17 +1317,26 @@ def singleGroup(request,user_id,group_id):
             group = Group.objects.get(id = group_id)
             user_id_int = json.loads(user_id)
             if user_id_int==group.user_id:
+
                 group.group_name = group_name
                 previous_list = group.group_list
                 group.group_list = group_list
                 group.save()
+ 
+                group_maps = GroupMap.objects.filter(group_id=group_id)
+                group_maps.delete()
+ 
+                if group_list:
+                    if len(group_list)>0:
+                        t2 = threading.Thread(target=groupMapAdd, args=(user_id,group.id,group_list))
+                        t2.start()
 
                 people_to_add_list = list(set(group_list) - set(previous_list))
-                t1 = threading.Thread(target=fcmNotification, args= (user_id, people_to_add_list, GROUP_TYPE , group.id, ADD_MESSAGE))
-                t1.start()
-                
-                t2 = threading.Thread(target=groupMapAdd, args=(user_id,group.id,people_to_add_list))
-                t2.start()
+
+                if len(people_to_add_list)>0:
+                    t1 = threading.Thread(target=fcmNotification, args= (user_id, people_to_add_list, GROUP_TYPE , group.id, ADD_MESSAGE))
+                    t1.start()
+
                 date =datetime.date.today() + timedelta(days=1)
                 t3 = threading.Thread(target = personTag, args=(people_to_add_list,user_id, group.id, date, GROUP_TYPE))
                 t3.start()
@@ -1345,13 +1405,13 @@ def tag(request,tagged_id):
                             task = Task.objects.get(id=event_id)
                             people_tag = task.tagged
                             group_tag = task.group_tag
-                            
+ 
                             if people_tag:
                                 tagged_users = User.objects.filter(id__in=people_tag)
                                 tagged_serializer = ProfileSerializer(tagged_users,many=True)
                                 print("tag serializer..")
                                 tag_dict['people_tag_korchi'] = tagged_serializer.data
-                            
+ 
                             print("group tag type " + str(type(group_tag)))
                             print(""+str(group_tag))
                             if group_tag:
@@ -1557,3 +1617,21 @@ def tagAction(request,tagged_id,tag_id):
             response = {"success":False,"message":"error.. "}
             return Response(response,status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+def logout(request, user_id):
+    if request.method == 'POST':
+        try:
+            token = request.POST.get('token')
+            user = User.objects.get(id=user_id)
+            token_list = user.fcm_token
+            if token in token_list:
+                token_list.remove(token)
+                user.fcm_token = token_list
+                user.save()
+
+            response = {"success":True, "msssage":"logged out"}
+            return  Response(response,status=status.HTTP_200_OK)
+        except Exception as ex:
+            print(str(ex))
+            response = {"success":False,"message":"error"}
+            return Response(response,status=status.HTTP_400_BAD_REQUEST)
